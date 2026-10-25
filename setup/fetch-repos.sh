@@ -38,7 +38,7 @@ for name in "${submodule_names[@]}"; do
       fi
   }
 
-  submodule_dirty() { [ -n "$(git -C "$CALLSER_ROOT/$1" status --porcelain 2>/dev/null)" ]; }
+  submodule_dirty() { [ -n "$(git -C "$CALLER_ROOT/$1" status --porcelain 2>/dev/null)" ]; }
   submodule_check() { [ "$(submodule_state "$1")" = "ok" ]; }
 
   submodule_describe() {
