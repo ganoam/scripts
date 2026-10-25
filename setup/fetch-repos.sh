@@ -9,7 +9,9 @@ if [[ -z $CONFIGROOT ]]; then
   return 1
 fi
 
+# source function libarary
 source $CONFIGROOT/../deps/scripts/setup/lib.sh
+parse_common_args "$@"
 
 CALLER_ROOT=$(find_caller_root) || { log "ERROR: could not find caller repo root."; exit 1; }
 mkdir -p "$CALLER_ROOT/deps"
