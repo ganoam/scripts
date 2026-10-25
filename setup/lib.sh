@@ -48,7 +48,7 @@ find_caller_root () {
 
 bootstrap_script() {
     local RELPATH="$1"
-    local MODE="${4:-run}" # source or run
+    local MODE="${2:-run}" # source or run
 
     _run_script() {
       local script="$1"
@@ -77,12 +77,11 @@ bootstrap_script() {
         curl -fsSL "https://raw.githubusercontent.com/koalemo/scripts/$SHA/$RELPATH" -o "$tmp"
         pushd "$CONFIGROOT" > /dev/null # fetch scripts need to run from workspaceconfig root.
         _run_script "$tmp"
-        bash "$tmp" "$CONFIGROOT" $([ "$ASSUME_YES" -eq 1 ] && echo -y)
         popd > /dev/null
         rm -f "$tmp"
     else
         pushd "$ROOT" > /dev/null
-        _run_script "$tmp"
+        _run_script "$FULLPATH"
         popd > /dev/null
     fi
 }
