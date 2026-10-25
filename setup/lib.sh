@@ -86,6 +86,36 @@ bootstrap_script() {
     fi
 }
 
+# --- Tool installs ---
+tool_state() {
+    local bin="$1" venv="${2:-$MAIN_VENV}"
+    if [ -x "$venv/bin/$bin" ]; then
+        echo "ok"
+    elif [ -d "$venv" ]; then
+        echo "venv_exists_no_tool"
+    else
+        echo "not_installed"
+    fi
+}
+
+tool_check() {
+  local bin="$1" venv="${2:-$MAIN_VENV}"
+  [ "$(tool_state "$bin" "$venv")" = "ok" ];
+}
+
+tool_describe() {
+    local bin="$1" venv="${2:-$MAIN_VENV}"
+    case "$(tool_state "$bin" "$venv")" in
+        venv_exists_no_tool) echo "venv exists but $bin is missing" ;;
+        not_installed)       echo "not installed" ;;
+    esac
+}
+
+ensure_venv() {
+    local venv="${1:-$MAIN_VENV}"
+    [ -d "$venv" ] || python3 -m venv "$venv" || return 1
+    "$venv/bin/pip" install --upgrade pip
+}
 ensure_tool() {
     local name="$1" check_fn="$2" install_fn="$3" describe_fn="${4:-}"
     if eval "$check_fn"; then
