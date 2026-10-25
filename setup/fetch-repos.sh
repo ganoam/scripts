@@ -4,95 +4,69 @@
 
 set -uo pipefail
 
-ASSUME_YES=0
-for arg in "$@"; do
-    case "$arg" in
-        -y|--yes) ASSUME_YES=1 ;;
-    esac
-done
+if [[ -z $CONFIGROOT ]]; then
+  echo "[$basename "$0"] ERROR: variable CONFIGROOT not set."
+  return 1
+fi
 
-find_repo_root() {
-    local dir="$PWD"
-    while [ "$dir" != "/" ]; do
-        [ -e "$dir/.git" ] && { echo "$dir"; return 0; }
-        dir=$(dirname "$dir")
-    done
-    return 1
-}
+source $CONFIGROOT/../deps/scripts/setup/lib.sh
 
-CALLER_ROOT=$(find_repo_root) || { echo "[fetch-repos] ERROR: could not find repo root."; exit 1; }
+CALLER_ROOT=$(find_caller_root) || { log "ERROR: could not find caller repo root."; exit 1; }
 mkdir -p "$CALLER_ROOT/deps"
 
-ensure_tool() {
-    local name="$1" check_fn="$2" install_fn="$3" describe_fn=$4
-    if eval "$check_fn"; then
-        echo "[fetch-repos] $name already present, skipping."
-        return
-    fi
-    local reason="not found"
-    [ -n "$describe_fn" ] && reason="$(eval "$describe_fn")"
-    local answer="n"
-    if [ "$ASSUME_YES" -eq 1 ]; then
-        answer="y"
-    else
-        read -p "$name: $reason. Install it now? [y/N] " answer
-    fi
-    case "$answer" in
-        y|Y|yes|Yes)
-            echo "[fetch-repos] Installing $name ..."
-            if eval "$install_fn"; then
-                echo "[fetch-repos] $name installed."
-            else
-                echo "[fetch-repos] ERROR: failed to install $name."
-            fi
-            ;;
-        *)
-            echo "[fetch-repos] Skipping $name install."
-            ;;
-    esac
-}
-
 mapfile -t submodule_names < <(git -C "$CALLER_ROOT" config --file "$CALLER_ROOT/.gitmodules" --get-regexp path | awk '{print $2}')
+
 for name in "${submodule_names[@]}"; do
 
-    submodule_state() {
-        local status_line
-        status_line=$(git -C "$CALLER_ROOT" submodule status -- "$1" 2>/dev/null)
-        if [ -z "$status_line" ]; then
-            echo "unregistered"      # no gitlink at all -> pathspec error case
-        elif [[ "$status_line" == -* ]]; then
-            echo "not_initialized"   # registered, never checked out
-        elif [[ "$status_line" == +* ]]; then
-            echo "wrong_commit"      # checked out, but HEAD != pinned commit
-        else
-            echo "ok"
-        fi
-    }
+  submodule_state() {
+      local status_line
+      status_line=$(git -C "$CALLER_ROOT" submodule status -- "$1" 2>/dev/null)
+      if [ -z "$status_line" ]; then
+          echo "unregistered"
+      elif [[ "$status_line" == -* ]]; then
+          echo "not_initialized"
+      elif [[ "$status_line" == +* ]]; then
+          if submodule_dirty "$1"; then
+              echo "dirty"
+          else
+              echo "wrong_commit"
+          fi
+      else
+          echo "ok"
+      fi
+  }
 
-    submodule_check() { [ "$(submodule_state "$1")" = "ok" ]; }
+  submodule_dirty() { [ -n "$(git -C "$CALLSER_ROOT/$1" status --porcelain 2>/dev/null)" ]; }
+  submodule_check() { [ "$(submodule_state "$1")" = "ok" ]; }
 
-    submodule_install() {
-        local state
-        state=$(submodule_state "$1")
-        case "$state" in
-            unregistered)
-                echo "[fetch-repos] ERROR: '$1' has no gitlink in the index — run 'git submodule add' once manually."
-                return 1
-                ;;
-            not_initialized)
-                git -C "$CALLER_ROOT" submodule update --init --recursive -- "$1"
-                ;;
-            wrong_commit)
-                if submodule_dirty "$1"; then
-                    echo "[fetch-repos] WARNING: '$1' has uncommitted changes, skipping update."
-                    return 1
-                fi
-                echo "[fetch-repos] '$1' is on a different commit than expected, updating..."
-                git -C "$CALLER_ROOT" submodule update --init --recursive -- "$1"
-                ;;
-        esac
-    }
-    submodule_describe() { submodule_state "$1"; }
+  submodule_describe() {
+      case "$(submodule_state "$1")" in
+          unregistered)   echo "not registered as a submodule" ;;
+          not_initialized) echo "not initialized" ;;
+          dirty)          echo "has uncommitted changes" ;;
+          wrong_commit)   echo "on a different commit than expected" ;;
+      esac
+  }
 
-    ensure_tool "submodule:$name" "submodule_check $name" "submodule_install $name" "submodule_describe $name"
-  done
+  submodule_install() {
+      case "$(submodule_state "$1")" in
+          dirty)
+              log "WARNING: '$1' has uncommitted changes, skipping update."
+              return 1
+              ;;
+          unregistered|not_initialized|wrong_commit)
+              git -C "$CALLER_ROOT" submodule update --init --recursive -- "$1"
+              ;;
+      esac
+  }
+
+  state=$(submodule_state "$name")
+  if [ "$state" = "ok" ]; then
+      log "submodule:$name already present, skipping."
+  elif [ "$state" = "dirty" ]; then
+      log "WARNING: submodule:$name has uncommitted changes, skipping (not prompting)."
+  else
+      ensure_tool "submodule:$name" "submodule_check $name" "submodule_install $name" "submodule_describe $name"
+  fi
+done
+
