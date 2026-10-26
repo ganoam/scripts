@@ -88,7 +88,16 @@ bootstrap_script() {
 
 # --- Tool installs ---
 tool_state() {
-    local bin="$1" venv="${2:-$MAIN_VENV}"
+    local bin="$1" venv="${2:-}"
+    if [ -z "$venv" ]; then
+        if command -v "$bin" >/dev/null 2>&1; then
+            echo "ok"
+        else
+            echo "not_installed"
+        fi
+        return
+    fi
+
     if [ -x "$venv/bin/$bin" ]; then
         echo "ok"
     elif [ -d "$venv" ]; then
@@ -99,12 +108,12 @@ tool_state() {
 }
 
 tool_check() {
-  local bin="$1" venv="${2:-$MAIN_VENV}"
-  [ "$(tool_state "$bin" "$venv")" = "ok" ];
+    local bin="$1" venv="${2:-}"
+    [ "$(tool_state "$bin" "$venv")" = "ok" ]
 }
 
 tool_describe() {
-    local bin="$1" venv="${2:-$MAIN_VENV}"
+    local bin="$1" venv="${2:-}"
     case "$(tool_state "$bin" "$venv")" in
         venv_exists_no_tool) echo "venv exists but $bin is missing" ;;
         not_installed)       echo "not installed" ;;
