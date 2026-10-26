@@ -7,7 +7,7 @@ SCRIPT_NAME="$(basename "$0")"
 ASSUME_YES=0
 
 log() {
-    echo "[$SCRIPT_NAME] $*"
+    echo "[$SCRIPT_NAME] $*" >&2
 }
 
 prompt() {
@@ -94,37 +94,72 @@ bootstrap_script() {
     fi
 }
 
+# --- apt deps from <tool>-deps.yml ---
+read_deps_file() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    grep -E '^\s*-\s*' "$file" | sed -E 's/^\s*-\s*//'
+}
+
+apt_pkg_installed() {
+    dpkg -s "$1" >/dev/null 2>&1
+}
+
+missing_apt_pkgs() {
+    local missing=()
+    for pkg in "$@"; do
+        apt_pkg_installed "$pkg" || missing+=("$pkg")
+    done
+    echo "${missing[@]}"
+}
+
 # --- Tool installs ---
 tool_state() {
     local bin="$1" venv="${2:-}"
+    local state
+
     if [ -z "$venv" ]; then
         if command -v "$bin" >/dev/null 2>&1; then
-            echo "ok"
+            state="ok"
         else
-            echo "not_installed"
+            state="not_installed"
         fi
-        return
+    elif [ -x "$venv/bin/$bin" ]; then
+        state="ok"
+    elif [ -d "$venv" ]; then
+        state="venv_exists_no_tool"
+    else
+        state="not_installed"
     fi
 
-    if [ -x "$venv/bin/$bin" ]; then
-        echo "ok"
-    elif [ -d "$venv" ]; then
-        echo "venv_exists_no_tool"
-    else
-        echo "not_installed"
+    local deps_file="$CONFIGROOT/../$(basename "$bin")-deps.yml"
+    if [ -f "$deps_file" ]; then
+        local pkgs missing
+        pkgs=$(read_deps_file "$deps_file")
+        missing=$(missing_apt_pkgs $pkgs)
+        if [ -n "$missing" ]; then
+            log "WARNING: $bin missing apt packages: $missing"
+            state="missing_deps:$missing"
+        fi
     fi
+
+    echo "$state"
 }
 
 tool_check() {
     local bin="$1" venv="${2:-}"
-    [ "$(tool_state "$bin" "$venv")" = "ok" ]
+    local state; state=$(tool_state "$bin" "$venv")
+    [[ "$state" == "ok" ]]
 }
 
 tool_describe() {
     local bin="$1" venv="${2:-}"
-    case "$(tool_state "$bin" "$venv")" in
-        venv_exists_no_tool) echo "venv exists but $bin is missing" ;;
-        not_installed)       echo "not installed" ;;
+    local state; state=$(tool_state "$bin" "$venv")
+    case "$state" in
+        venv_exists_no_tool) log "venv exists but $bin is missing" ;;
+        not_installed)       log "not installed" ;;
+        missing_deps:*)      log "missing apt packages: ${state#missing_deps:}" ;;
+
     esac
 }
 
@@ -133,19 +168,40 @@ ensure_venv() {
     [ -d "$venv" ] || python3 -m venv "$venv" || return 1
     "$venv/bin/pip" install --upgrade pip
 }
+
 ensure_tool() {
     local name="$1" check_fn="$2" install_fn="$3" describe_fn="${4:-}"
     if eval "$check_fn"; then
         log "$name already present, skipping."
         return
     fi
+
+    local state; state=$(tool_state "$name")
+    if [[ "$state" == missing_deps:* ]]; then
+        local missing="${state#missing_deps:}"
+        local answer="n"
+        if [ "$ASSUME_YES" -eq 1 ]; then
+            answer="y"
+        else
+            prompt answer "$name: missing apt packages ($missing). Install with sudo apt install? [y/N]"
+        fi
+        case "$answer" in
+            y|Y|yes|Yes)
+                sudo apt install -y $missing
+                ;;
+            *)
+                log "Skipping apt install for $name."
+                ;;
+        esac
+    fi
+
     local reason="not found"
     [ -n "$describe_fn" ] && reason="$(eval "$describe_fn")"
     local answer="n"
     if [ "$ASSUME_YES" -eq 1 ]; then
         answer="y"
     else
-        read -p "$name: $reason. Install it now? [y/N] " answer
+        prompt answer "$name: $reason. Install it now? [y/N]"
     fi
     case "$answer" in
         y|Y|yes|Yes)
@@ -161,3 +217,4 @@ ensure_tool() {
             ;;
     esac
 }
+
