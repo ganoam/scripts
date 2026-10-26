@@ -26,6 +26,14 @@ parse_common_args() {
     done
 }
 
+add_to_path() {
+    local dir="$1"
+    case ":$PATH:" in
+        *":$dir:"*) ;;                 # already present, do nothing
+        *) export PATH="$dir:$PATH" ;; # not present, prepend
+    esac
+}
+
 # find root of containing repo
 find_repo_root() {
     local dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
