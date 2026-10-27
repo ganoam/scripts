@@ -10,7 +10,14 @@ if [[ -z $CONFIGROOT ]]; then
 fi
 
 # source function libarary
-source $CONFIGROOT/../deps/scripts/setup/lib.sh
+LIB=/setup/lib.sh
+if [ -f "$CONFIGROOT/../deps/scripts/$LIB" ]; then
+  source $CONFIGROOT/../deps/scripts/setup/lib.sh
+else
+  # The scripts repo hasn't been checked out yet.
+  # bootstrap_script must have been exported.
+  bootstrap_script "$LIB" "source"
+fi
 parse_common_args "$@"
 
 CALLER_ROOT=$(find_caller_root) || { log "ERROR: could not find caller repo root."; exit 1; }
