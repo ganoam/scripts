@@ -156,9 +156,9 @@ tool_describe() {
     local bin="$1" venv="${2:-}"
     local state; state=$(tool_state "$bin" "$venv")
     case "$state" in
-        venv_exists_no_tool) log "venv exists but $bin is missing" ;;
-        not_installed)       log "not installed" ;;
-        missing_deps:*)      log "missing apt packages: ${state#missing_deps:}" ;;
+        venv_exists_no_tool) echo "venv exists but $bin is missing" ;;
+        not_installed)       echo "not installed" ;;
+        missing_deps:*)      echo "missing apt packages: ${state#missing_deps:}" ;;
 
     esac
 }
