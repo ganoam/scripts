@@ -30,7 +30,7 @@ set_pct() {
 }
 
 mute() {
-  wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+  wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
 }
 
 notify() {
