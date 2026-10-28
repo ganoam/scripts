@@ -7,9 +7,9 @@ for _prs in $_ps; do
          killall -9 "${_prs}"
     fi
  done
- 
+
 # Start our applications
-swaybg --output '*' --mode center  --image ~/Pictures/emperor-tamarin.jpg &
+swaybg --output '*' --mode center  --image $CONFIGROOT/bgs/emperor-tamarin.jpg &
 mako &
 waybar &
 foot --server &
