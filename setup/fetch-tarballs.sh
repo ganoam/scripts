@@ -51,7 +51,7 @@ tarball_install() {
     curl -fsSL "$url" -o "$archive" || return 1
     rm -rf "$dest"
     mkdir -p "$dest"
-    tar -xf "$archive" -C "$dest" --strip-components=1
+    tar -xf "$archive" -C "$dest"
 }
 
 # Minimal YAML parse: name/url/hash blocks
