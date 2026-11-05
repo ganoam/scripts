@@ -51,7 +51,14 @@ tarball_install() {
     curl -fsSL "$url" -o "$archive" || return 1
     rm -rf "$dest"
     mkdir -p "$dest"
-    tar -xf "$archive" -C "$dest"
+    tar --no-same-owner -xf "$archive" -C "$dest" || return 1
+    # flatten archives with a single top-level directory (e.g. nvim-linux-x86_64/)
+    shopt -s nullglob dotglob
+    local entries=("$dest"/*)
+    if [ ${#entries[@]} -eq 1 ] && [ -d "${entries[0]}" ]; then
+        mv "${entries[0]}"/* "$dest/" && rmdir "${entries[0]}"
+    fi
+    shopt -u nullglob dotglob
 }
 
 # Minimal YAML parse: name/url/hash blocks
