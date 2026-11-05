@@ -75,7 +75,7 @@ bootstrap_script() {
     local FULLPATH="$CONFIGROOT/../deps/scripts/$RELPATH"
     if [ ! -f "$FULLPATH" ]; then
         local SHA
-        SHA=$(git -C "$CONFIGROOT" ls-tree HEAD -- deps/scripts | awk '{print $2}')
+        SHA=$(git -C "$CONFIGROOT/.." ls-tree HEAD -- deps/scripts | awk '{print $3}')
         if [ -z "$SHA" ]; then
             log ": WARNING: no pinned commit found for deps/scripts in the index."
             SHA="master"
