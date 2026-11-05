@@ -79,3 +79,8 @@ for line in "${tarball_names[@]}"; do
     esac
 done
 process_entry
+
+if ((${#FAILED_TOOLS[@]})); then
+    log "ERROR: ${#FAILED_TOOLS[@]} tarball(s) not installed: ${FAILED_TOOLS[*]}"
+    exit 1
+fi
