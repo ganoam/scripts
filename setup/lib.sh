@@ -5,6 +5,7 @@
 
 SCRIPT_NAME="$(basename "$0")"
 ASSUME_YES=0
+FAILED_TOOLS=()
 
 log() {
     echo "[$SCRIPT_NAME] $*" >&2
@@ -210,10 +211,14 @@ ensure_tool() {
                 log "$name installed."
             else
                 log "ERROR: failed to install $name."
+                FAILED_TOOLS+=("$name")
+                return 1
             fi
             ;;
         *)
             log "Skipping $name install."
+            FAILED_TOOLS+=("$name")
+            return 1
             ;;
     esac
 }
