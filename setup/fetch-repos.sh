@@ -25,6 +25,9 @@ mkdir -p "$CALLER_ROOT/deps"
 
 mapfile -t submodule_names < <(git -C "$CALLER_ROOT" config --file "$CALLER_ROOT/.gitmodules" --get-regexp path | awk '{print $2}')
 
+submodule_dirty() { [ -n "$(git -C "$CALLER_ROOT/$1" status --porcelain 2>/dev/null)" ]; }
+
+FAILED=()
 for name in "${submodule_names[@]}"; do
 
   submodule_state() {
@@ -45,37 +48,29 @@ for name in "${submodule_names[@]}"; do
       fi
   }
 
-  submodule_dirty() { [ -n "$(git -C "$CALLER_ROOT/$1" status --porcelain 2>/dev/null)" ]; }
-  submodule_check() { [ "$(submodule_state "$1")" = "ok" ]; }
-
-  submodule_describe() {
-      case "$(submodule_state "$1")" in
-          unregistered)   echo "not registered as a submodule" ;;
-          not_initialized) echo "not initialized" ;;
-          dirty)          echo "has uncommitted changes" ;;
-          wrong_commit)   echo "on a different commit than expected" ;;
-      esac
-  }
-
-  submodule_install() {
-      case "$(submodule_state "$1")" in
-          dirty)
-              log "WARNING: '$1' has uncommitted changes, skipping update."
-              return 1
-              ;;
-          unregistered|not_initialized|wrong_commit)
-              git -C "$CALLER_ROOT" submodule update --init --recursive -- "$1"
-              ;;
-      esac
-  }
 
   state=$(submodule_state "$name")
-  if [ "$state" = "ok" ]; then
-      log "submodule:$name already present, skipping."
-  elif [ "$state" = "dirty" ]; then
-      log "WARNING: submodule:$name has uncommitted changes, skipping (not prompting)."
-  else
-      ensure_tool "submodule:$name" "submodule_check $name" "submodule_install $name" "submodule_describe $name"
-  fi
+  case "$state" in
+      ok)
+          log "submodule:$name already present, skipping."
+          ;;
+      dirty)
+          log "WARNING: submodule:$name has uncommitted changes, skipping."
+          FAILED+=("$name")
+          ;;
+      *)
+          if git -C "$CALLER_ROOT" submodule update --init --recursive -- "$name"; then
+              log "submodule:$name fetched."
+          else
+              log "ERROR: failed to fetch submodule:$name."
+              FAILED+=("$name")
+          fi
+          ;;
+  esac
 done
+
+if ((${#FAILED[@]})); then
+    log "ERROR: ${#FAILED[@]} submodule(s) not synced: ${FAILED[*]}"
+    exit 1
+fi
 
