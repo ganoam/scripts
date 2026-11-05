@@ -58,13 +58,14 @@ find_caller_root () {
 bootstrap_script() {
     local RELPATH="$1"
     local MODE="${2:-run}" # source or run
+    shift 2
 
     _run_script() {
-      local script="$1"
+      local script="$1"; shift
       if [ "$MODE" == "source" ]; then
-        source "$script"
+        source "$script" "$@"
       else
-        bash "$script"
+        bash "$script" "$@"
       fi
     }
 
