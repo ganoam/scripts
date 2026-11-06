@@ -1,4 +1,5 @@
 #!/bin/env bash
 
 wlock &
+sleep 1
 systemctl suspend
