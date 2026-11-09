@@ -84,7 +84,7 @@ bootstrap_script() {
         fi
         local tmp
         tmp=$(mktemp)
-        curl -fsSL "https://raw.githubusercontent.com/koalemo/scripts/$SHA/$RELPATH" -o "$tmp"
+        curl -fsSL "https://raw.githubusercontent.com/ganoam/scripts/$SHA/$RELPATH" -o "$tmp"
         pushd "$CONFIGROOT" > /dev/null # fetch scripts need to run from workspaceconfig root.
         _run_script "$tmp"
         popd > /dev/null
