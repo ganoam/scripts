@@ -4,9 +4,9 @@
 
 set -uo pipefail
 
-if [[ -z $CONFIGROOT ]]; then
-  echo "[$basename "$0"] ERROR: variable CONFIGROOT not set."
-  return 1
+if [[ -z ${CONFIGROOT:-} ]]; then
+  echo "[$(basename "$0")] ERROR: variable CONFIGROOT not set. Source sourceme/sourceme.sh first." >&2
+  exit 1
 fi
 
 # source function libarary
