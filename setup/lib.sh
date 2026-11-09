@@ -88,12 +88,16 @@ bootstrap_script() {
             || { rm -f "$tmp"; log "ERROR: failed to fetch $RELPATH"; return 1; }
         pushd "$CONFIGROOT" > /dev/null # fetch scripts need to run from workspaceconfig root.
         _run_script "$tmp"
+        local rc=$?
         popd > /dev/null
         rm -f "$tmp"
+        return $rc
     else
         pushd "$ROOT" > /dev/null
         _run_script "$FULLPATH"
+        local rc=$?
         popd > /dev/null
+        return $rc
     fi
 }
 
@@ -172,10 +176,33 @@ ensure_venv() {
     "$venv/bin/pip" install --upgrade pip
 }
 
+# Write a wrapper into envs/bin (on PATH via sourceme.sh).
+# $1: command name, $2: target path relative to repo root, rest: extra args
+gen_wrapper() {
+    local name="$1" target="$2"; shift 2
+    local dir="$CONFIGROOT/../envs/bin"
+    if [ ! -x "$CONFIGROOT/../$target" ]; then
+        log "WARNING: not shimming $name: $target missing or not executable"
+        return 1
+    fi
+    mkdir -p "$dir" || return 1
+    {
+        printf '#!/usr/bin/env bash\n'
+        printf 'exec "$CONFIGROOT/../%s"' "$target"
+        [ $# -gt 0 ] && printf ' "%s"' "$@"
+        printf ' "$@"\n'
+    } > "$dir/$name"
+    chmod +x "$dir/$name"
+}
+
 ensure_tool() {
-    local name="$1" check_fn="$2" install_fn="$3" describe_fn="${4:-}"
+    local name="$1" check_fn="$2" install_fn="$3" describe_fn="${4:-}" wrapper="${5:-}"
+    local wname="${wrapper%%:*}" wpath="${wrapper#*:}"
+    local wargs=("${@:6}")
+
     if eval "$check_fn"; then
         log "$name already present, skipping."
+        [ -n "$wrapper" ] && gen_wrapper "$wname" "$wpath" "${wargs[@]}"
         return
     fi
 
@@ -211,6 +238,7 @@ ensure_tool() {
             log "Installing $name ..."
             if eval "$install_fn"; then
                 log "$name installed."
+                [ -n "$wrapper" ] && gen_wrapper "$wname" "$wpath" "${wargs[@]}"
             else
                 log "ERROR: failed to install $name."
                 FAILED_TOOLS+=("$name")

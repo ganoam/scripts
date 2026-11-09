@@ -61,11 +61,13 @@ tarball_install() {
     shopt -u nullglob dotglob
 }
 
-# Minimal YAML parse: name/url/hash blocks
-name="" url="" hash=""
+# Minimal YAML parse: name/url/hash/bin blocks
+name="" url="" hash="" bin=""
 process_entry() {
     [ -z "$name" ] && return
-    ensure_tool "$name" "tarball_check $name $hash" "tarball_install $name $url" "tarball_describe $name $hash"
+    local wrapper=""
+    [ -n "$bin" ] && wrapper="$(basename "$bin"):deps/$name/$bin"
+    ensure_tool "$name" "tarball_check $name $hash" "tarball_install $name $url" "tarball_describe $name $hash" "$wrapper"
 }
 
 mapfile -t tarball_names < <(cat $MANIFEST)
@@ -73,9 +75,10 @@ mapfile -t tarball_names < <(cat $MANIFEST)
 for line in "${tarball_names[@]}"; do
     case "$line" in
         [a-zA-Z0-9_-]*:) process_entry
-                         name="${line%:}"; url=""; hash="" ;;
+                         name="${line%:}"; url=""; hash=""; bin="" ;;
         *url:*)  url=$(echo "$line" | awk '{print $2}') ;;
         *hash:*) hash=$(echo "$line" | awk '{print $2}') ;;
+        *bin:*)  bin=$(echo "$line" | awk '{print $2}') ;;
     esac
 done
 process_entry
