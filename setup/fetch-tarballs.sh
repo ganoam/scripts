@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # deps/scripts/setup/fetch-tarballs.sh [-y|--yes]
-# Downloads tar.gz/tgz dependencies described in tarballs.yaml
+# Downloads tar.gz/tgz dependencies described in tarballs.yml
 # at the root of the calling repo.
 
 set -uo pipefail
@@ -17,8 +17,8 @@ parse_common_args "$@"
 CALLER_ROOT=$(find_caller_root) || { log "ERROR: could not find repo root."; exit 1; }
 mkdir -p "$CALLER_ROOT/deps"
 
-MANIFEST="$CALLER_ROOT/tarballs.yaml"
-[ -f "$MANIFEST" ] || { log "No tarballs.yaml found, nothing to do."; exit 0; }
+MANIFEST="$CALLER_ROOT/tarballs.yml"
+[ -f "$MANIFEST" ] || { log "No tarballs.yml found, nothing to do."; exit 0; }
 
 tarball_check() {
     local name="$1" hash="$2"
