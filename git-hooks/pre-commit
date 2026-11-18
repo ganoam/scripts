@@ -1,0 +1,36 @@
+#!/bin/bash
+# Enforce the private/public file boundary at commit time.
+#
+# The private file list lives in .gitprivate on the `private` branch
+# (read via `git show`, applies regardless of checked-out branch).
+#
+# On `master`: refuse staging any .gitprivate file.
+# On `private`: refuse commits that mix .gitprivate files with public
+#               files -- publish.sh replays public commits onto master
+#               and cannot split a mixed commit.
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+private_set=$(git show private:.gitprivate 2>/dev/null \
+  | sed 's/#.*//; s/^ *//; s/ *$//' | grep -v '^$' | LC_ALL=C sort)
+[ -n "$private_set" ] || exit 0
+
+staged=$(git diff --cached --name-only | LC_ALL=C sort)
+private_staged=$(comm -12 <(echo "$staged") <(echo "$private_set"))
+public_staged=$(comm -23 <(echo "$staged") <(echo "$private_set"))
+
+if [ "$branch" = "master" ] && [ -n "$private_staged" ]; then
+  echo "pre-commit: .gitprivate files staged on master:"
+  echo "$private_staged" | sed 's/^/  /'
+  echo "commit them on the 'private' branch instead."
+  exit 1
+fi
+
+if [ "$branch" = "private" ] && [ -n "$private_staged" ] && [ -n "$public_staged" ]; then
+  echo "pre-commit: commit mixes private and public files:"
+  echo "  private: $private_staged"
+  echo "  public:  $(echo "$public_staged" | head -5 | tr '\n' ' ')..."
+  echo "split into two commits (private files in their own commit),"
+  echo "or use --no-verify if this is intentional."
+  exit 1
+fi
+exit 0
