@@ -76,10 +76,9 @@ if [ "$dry" = 1 ]; then
   exit 0
 fi
 
-# Everything scanned is settled, picked or not -- retire it.
-git tag -f publish-base "$scan_tip" >/dev/null
-
 if [ ${#pick[@]} -eq 0 ]; then
+  # Everything scanned is settled -- retire it.
+  git tag -f publish-base "$scan_tip" >/dev/null
   echo "publish: nothing to publish (publish-base -> $(git log --oneline -1 "$scan_tip"))."
   exit 0
 fi
@@ -87,18 +86,32 @@ fi
 echo "publishing ${#pick[@]} commit(s) to master:"
 
 wt=$(mktemp -d /tmp/publish-master.XXXXXX)
-git worktree add "$wt" master >/dev/null 2>&1
+if ! git worktree add "$wt" master; then
+  echo "publish: could not create worktree for 'master' --"
+  echo "  is another worktree already holding it? (git worktree list)"
+  rm -rf "$wt"
+  exit 1
+fi
 trap 'git worktree remove --force "$wt" 2>/dev/null' EXIT
 for sha in "${pick[@]}"; do
-  if ! git -C "$wt" cherry-pick -x "$sha"; then
+  if ! out=$(git -C "$wt" cherry-pick -x "$sha" 2>&1); then
+    if echo "$out" | grep -q "now empty"; then
+      echo "  skip (already applied) ${sha:0:8}  $(git log --format=%s -1 "$sha")"
+      continue
+    fi
     trap - EXIT
-    echo "publish: conflict at $sha"
+    echo "publish: cherry-pick failed at $sha:"
+    echo "$out" | sed 's/^/  /'
     echo "  resolve in: cd $wt && git cherry-pick --continue"
     echo "  then remove worktree: git worktree remove --force $wt"
     exit 1
   fi
+  echo "  $(git -C "$wt" rev-parse --short HEAD) <- ${sha:0:8}  $(git log --format=%s -1 "$sha")"
 done
 
+# All picks applied -- the scanned range is settled.
+git tag -f publish-base "$scan_tip" >/dev/null
 echo
 echo "published. master is now: $(git -C "$wt" log --oneline -1)"
 echo "next: git push origin master"
+echo "optional: git merge master   # pull published commits back into private"
