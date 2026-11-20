@@ -1,6 +1,6 @@
 # AGENTS.md: notes for anyone working in this repo
 
-Generic binding rules and operating workflow live in `../workflows/agents/` (`rules.md`, `workflow.md`): the sibling `deps/workflows` checkout of the parent repo this clone sits under.
+Generic binding rules and operating workflow live in `../workflows/agents/` (`rules.md`, `workflow.md`) and the prose style guide `../workflows/MdStyle.md`; all apply in full here.
 If `../workflows` is absent (standalone checkout), use `~/workspaceconfig/deps/workflows`; if that is absent too, the injected plugin copies of `rules.md` and `workflow.md` apply.
 This file holds only repo-specific guidance.
 Keep it current per the shared rules.
@@ -29,9 +29,10 @@ Project-local recipes: none yet.
 Everything is authored here; nothing is vendored.
 
 - `git-hooks/`: pre-commit and pre-push guards for the git-privacy workflow; consumer repos point `core.hooksPath` at this directory.
-- `git-util/`: `setup-git-hooks.sh` (sets `core.hooksPath`; owner runs it, it writes git config) and `publish.sh` (replays public commits `private` -> `master`).
+- `git-util/`: `setup-git-hooks.sh` (sets `core.hooksPath`; owner runs it, it writes git config) and `publish.sh` (replays public commits `private` -> the public branch, resolved via `origin/HEAD` with `master` fallback).
 - `setup/`: machine/workspace bootstrap (`fetch-repos.sh`, `fetch-tarballs.sh`, `lib.sh`); expects `$CONFIGROOT` exported by the parent's `sourceme`.
 - `bin/`: standalone tools, incl. `gen_flist.py` (FuseSoC filelist generator).
+- `util/`: standalone utilities, incl. `verify-format-diff.py` (checks a formatting-only diff is only rewraps and dash removals).
 - `shell/`, `shortcut-menus/`, `etc/`: dwl session scripts, status helpers, dmenu-style shortcut menus, desktop file.
 
 ## Toolchain and build
