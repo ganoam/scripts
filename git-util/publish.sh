@@ -1,16 +1,18 @@
 #!/bin/bash
-# Publish public commits from `private` to `master`.
+# Publish public commits from `private` to the public branch
+# (resolved via origin/HEAD, default `master`).
 #
-# `private` is a superset branch: it carries all of master's content
-# plus private-only commits (files listed in .gitprivate). This script
-# replays every not-yet-published public commit onto `master` via a
-# temporary worktree, so the current checkout never moves.
+# `private` is a superset branch: it carries all of the public
+# branch's content plus private-only commits (files listed in
+# .gitprivate). This script replays every not-yet-published public
+# commit onto the public branch via a temporary worktree, so the
+# current checkout never moves.
 #
 # Boundary: tag `publish-base` marks the last settled point on
-# `private` and defaults to origin/master. Commits at or before it are
-# never re-examined -- that is what lets a file graduate from private
-# to public without its history leaking. The tag auto-advances to the
-# scanned tip after every run.
+# `private` and defaults to origin's public branch. Commits at or
+# before it are never re-examined -- that is what lets a file graduate
+# from private to public without its history leaking. The tag
+# auto-advances to the scanned tip after every run.
 #
 # Rules relied upon (enforced by the pre-commit hook):
 #   - no commit may mix .gitprivate files with public files
@@ -23,6 +25,12 @@ cd "$(git rev-parse --show-toplevel)"
 dry=0
 case "${1:-}" in --dry-run|-n) dry=1 ;; esac
 
+# The public branch is origin/HEAD, falling back to master.
+public=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)
+public=${public#origin/}; public=${public:-master}
+git rev-parse --verify --quiet "$public" >/dev/null \
+  || { echo "publish: no local public branch '$public'"; exit 1; }
+
 private_set=$(git show private:.gitprivate 2>/dev/null \
   | sed 's/#.*//; s/^ *//; s/ *$//' | grep -v '^$' | LC_ALL=C sort)
 [ -n "$private_set" ] || { echo "publish: no .gitprivate on 'private'"; exit 1; }
@@ -30,17 +38,17 @@ private_set=$(git show private:.gitprivate 2>/dev/null \
 if git rev-parse --verify --quiet publish-base >/dev/null; then
   base=publish-base
 else
-  base=origin/master
+  base="origin/$public"
 fi
 scan_tip=$(git rev-parse private)
 
-# Commits on private whose patch is not yet on local master ('+'
-# marks). Local master is the pick target, so already-picked (even
-# unpushed) patches are not re-examined.
+# Commits on private whose patch is not yet on the local public
+# branch ('+' marks). The local public branch is the pick target, so
+# already-picked (even unpushed) patches are not re-examined.
 declare -A pending
 while read mark sha; do
   [ "$mark" = "+" ] && pending[$sha]=1
-done < <(git cherry master private)
+done < <(git cherry "$public" private)
 
 pick=(); lines=()
 for sha in $(git rev-list --reverse "$base..private"); do
@@ -49,7 +57,7 @@ for sha in $(git rev-list --reverse "$base..private"); do
     lines+=("skip (merge)   $line"); continue
   fi
   if [ "${pending[$sha]:-}" != "1" ]; then
-    lines+=("skip (on master) $line"); continue
+    lines+=("skip (on $public) $line"); continue
   fi
   touched=$(git diff-tree --no-commit-id --name-only -r "$sha" | LC_ALL=C sort)
   priv=$(comm -12 <(echo "$touched") <(echo "$private_set"))
@@ -83,11 +91,11 @@ if [ ${#pick[@]} -eq 0 ]; then
   exit 0
 fi
 
-echo "publishing ${#pick[@]} commit(s) to master:"
+echo "publishing ${#pick[@]} commit(s) to $public:"
 
-wt=$(mktemp -d /tmp/publish-master.XXXXXX)
-if ! git worktree add "$wt" master; then
-  echo "publish: could not create worktree for 'master' --"
+wt=$(mktemp -d /tmp/publish.XXXXXX)
+if ! git worktree add "$wt" "$public"; then
+  echo "publish: could not create worktree for '$public' --"
   echo "  is another worktree already holding it? (git worktree list)"
   rm -rf "$wt"
   exit 1
@@ -112,6 +120,6 @@ done
 # All picks applied -- the scanned range is settled.
 git tag -f publish-base "$scan_tip" >/dev/null
 echo
-echo "published. master is now: $(git -C "$wt" log --oneline -1)"
-echo "next: git push origin master"
-echo "optional: git merge master   # pull published commits back into private"
+echo "published. $public is now: $(git -C "$wt" log --oneline -1)"
+echo "next: git push origin $public"
+echo "optional: git merge $public   # pull published commits back into private"

@@ -4,11 +4,16 @@
 # The private file list lives in .gitprivate on the `private` branch
 # (read via `git show`, applies regardless of checked-out branch).
 #
-# On `master`: refuse staging any .gitprivate file.
+# On the public branch (origin/HEAD, default `master`): refuse
+# staging any .gitprivate file.
 # On `private`: refuse commits that mix .gitprivate files with public
-#               files -- publish.sh replays public commits onto master
-#               and cannot split a mixed commit.
+#               files -- publish.sh replays public commits onto the
+#               public branch and cannot split a mixed commit.
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+# The public branch is origin/HEAD, falling back to master.
+public=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)
+public=${public#origin/}; public=${public:-master}
 
 private_set=$(git show private:.gitprivate 2>/dev/null \
   | sed 's/#.*//; s/^ *//; s/ *$//' | grep -v '^$' | LC_ALL=C sort)
@@ -18,8 +23,8 @@ staged=$(git diff --cached --name-only | LC_ALL=C sort)
 private_staged=$(comm -12 <(echo "$staged") <(echo "$private_set"))
 public_staged=$(comm -23 <(echo "$staged") <(echo "$private_set"))
 
-if [ "$branch" = "master" ] && [ -n "$private_staged" ]; then
-  echo "pre-commit: .gitprivate files staged on master:"
+if [ "$branch" = "$public" ] && [ -n "$private_staged" ]; then
+  echo "pre-commit: .gitprivate files staged on $public:"
   echo "$private_staged" | sed 's/^/  /'
   echo "commit them on the 'private' branch instead."
   exit 1
