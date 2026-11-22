@@ -1,4 +1,5 @@
 #!/bin/bash
+# Agent-generated; human reviewed; output verified.
 # Enforce the private/public file boundary at commit time.
 #
 # The private file list lives in .gitprivate on the `private` branch
@@ -19,9 +20,20 @@ private_set=$(git show private:.gitprivate 2>/dev/null \
   | sed 's/#.*//; s/^ *//; s/ *$//' | grep -v '^$' | LC_ALL=C sort)
 [ -n "$private_set" ] || exit 0
 
+# An entry matches a path equal to it, or every path below it when it
+# names a directory (gitignore-style, repo-root relative).
+private_filter() {
+  local p e
+  while IFS= read -r p; do          # each path on stdin
+    while IFS= read -r e; do        # each .gitprivate entry
+      case $p in "$e"|"$e"/*) echo "$p"; break ;; esac
+    done <<< "$private_set"
+  done
+}
+
 staged=$(git diff --cached --name-only | LC_ALL=C sort)
-private_staged=$(comm -12 <(echo "$staged") <(echo "$private_set"))
-public_staged=$(comm -23 <(echo "$staged") <(echo "$private_set"))
+private_staged=$(echo "$staged" | private_filter)
+public_staged=$(comm -23 <(echo "$staged") <(echo "$private_staged"))
 
 if [ "$branch" = "$public" ] && [ -n "$private_staged" ]; then
   echo "pre-commit: .gitprivate files staged on $public:"

@@ -33,12 +33,14 @@ Everything is authored here; nothing is vendored.
 - `setup/`: machine/workspace bootstrap (`fetch-repos.sh`, `fetch-tarballs.sh`, `lib.sh`); expects `$CONFIGROOT` exported by the parent's `sourceme`.
 - `bin/`: standalone tools, incl. `gen_flist.py` (FuseSoC filelist generator).
 - `util/`: standalone utilities, incl. `verify-format-diff.py` (checks a formatting-only diff is only rewraps and dash removals).
+- `tests/`: self-contained test harnesses (`test-git-privacy.sh` exercises the git-privacy hooks and publisher against a scratch repo).
 - `shell/`, `shortcut-menus/`, `etc/`: dwl session scripts, status helpers, dmenu-style shortcut menus, desktop file.
 
 ## Toolchain and build
 
 Shell (POSIX sh and bash) plus Python 3 (`bin/gen_flist.py`, uses the `fusesoc` package).
-No build or test suite; verify a change by exercising it in its real environment: a consumer repo for `git-hooks/`/`git-util/`, `~/workspaceconfig` for `setup/`.
+No build; `tests/` holds self-contained bash harnesses (run `tests/test-git-privacy.sh`).
+Otherwise verify a change by exercising it in its real environment: a consumer repo for `git-hooks/`/`git-util/`, `~/workspaceconfig` for `setup/`.
 
 ## Current state and next steps
 

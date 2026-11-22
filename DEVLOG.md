@@ -14,3 +14,10 @@
 - `git-util/publish.sh` and `git-hooks/pre-commit` now resolve the public branch via `origin/HEAD` with `master` fallback instead of hardcoding it, so the git-privacy tooling applies on repos whose public branch is `main`.
   `publish.sh` also refuses to run when the resolved local branch is missing, closing a silent no-op that would have advanced `publish-base`.
   `pre-push` was already branch-agnostic (keys on the remote name); the `private` branch name stays fixed by convention.
+
+## 2026-11-22: .gitprivate directory entries
+
+- `.gitprivate` entries naming a directory now cover every path below it (gitignore-style), replacing exact-path-only matching in `git-hooks/pre-commit`, `git-hooks/pre-push`, and `git-util/publish.sh` via a shared `private_filter` helper.
+- `publish.sh` fix: the `origin/HEAD` resolution died under `set -e` before the `master` fallback could apply on remotes without `origin/HEAD`; `|| true` restores the intended fallback.
+- `pre-push` fix: a private file added and removed inside a single pushed range escaped detection (endpoint diff only); the range check now scans every pushed commit's touched paths (`git log --name-only -m`) and flags transient private content too.
+- `tests/test-git-privacy.sh`: new self-contained harness that builds a scratch repo and exercises both hooks and the publisher end to end (15 checks).

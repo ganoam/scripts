@@ -1,4 +1,5 @@
 #!/bin/bash
+# Agent-generated; human reviewed; output verified.
 # Publish public commits from `private` to the public branch
 # (resolved via origin/HEAD, default `master`).
 #
@@ -26,7 +27,7 @@ dry=0
 case "${1:-}" in --dry-run|-n) dry=1 ;; esac
 
 # The public branch is origin/HEAD, falling back to master.
-public=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)
+public=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)
 public=${public#origin/}; public=${public:-master}
 git rev-parse --verify --quiet "$public" >/dev/null \
   || { echo "publish: no local public branch '$public'"; exit 1; }
@@ -34,6 +35,17 @@ git rev-parse --verify --quiet "$public" >/dev/null \
 private_set=$(git show private:.gitprivate 2>/dev/null \
   | sed 's/#.*//; s/^ *//; s/ *$//' | grep -v '^$' | LC_ALL=C sort)
 [ -n "$private_set" ] || { echo "publish: no .gitprivate on 'private'"; exit 1; }
+
+# An entry matches a path equal to it, or every path below it when it
+# names a directory (gitignore-style, repo-root relative).
+private_filter() {
+  local p e
+  while IFS= read -r p; do          # each path on stdin
+    while IFS= read -r e; do        # each .gitprivate entry
+      case $p in "$e"|"$e"/*) echo "$p"; break ;; esac
+    done <<< "$private_set"
+  done
+}
 
 if git rev-parse --verify --quiet publish-base >/dev/null; then
   base=publish-base
@@ -60,8 +72,8 @@ for sha in $(git rev-list --reverse "$base..private"); do
     lines+=("skip (on $public) $line"); continue
   fi
   touched=$(git diff-tree --no-commit-id --name-only -r "$sha" | LC_ALL=C sort)
-  priv=$(comm -12 <(echo "$touched") <(echo "$private_set"))
-  pub=$(comm -23 <(echo "$touched") <(echo "$private_set"))
+  priv=$(echo "$touched" | private_filter)
+  pub=$(comm -23 <(echo "$touched") <(echo "$priv"))
   if [ -n "$priv" ] && [ -n "$pub" ]; then
     echo "publish: $sha mixes private and public files -- split it first:"
     git show --stat --oneline "$sha" | head -20
