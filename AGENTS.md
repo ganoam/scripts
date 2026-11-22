@@ -1,7 +1,7 @@
 # AGENTS.md: notes for anyone working in this repo
 
 Generic binding rules and operating workflow live in `../workflows/agents/` (`rules.md`, `workflow.md`) and the prose style guide `../workflows/MdStyle.md`; all apply in full here.
-If `../workflows` is absent (standalone checkout), use `~/workspaceconfig/deps/workflows`; if that is absent too, the injected plugin copies of `rules.md` and `workflow.md` apply.
+Resolve them through the checkout chain: `~/workspaceconfig/deps/workflows`, then `deps/workflows` in this repo, then `../workflows` for dependency checkouts; if none exists, warn the owner and prompt them to clone the workflows repo.
 This file holds only repo-specific guidance.
 Keep it current per the shared rules.
 
