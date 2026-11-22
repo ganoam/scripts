@@ -29,11 +29,11 @@ Project-local recipes: none yet.
 Everything is authored here; nothing is vendored.
 
 - `git-hooks/`: pre-commit and pre-push guards for the git-privacy workflow; consumer repos point `core.hooksPath` at this directory.
-- `git-util/`: `setup-git-hooks.sh` (sets `core.hooksPath`; owner runs it, it writes git config) and `publish.sh` (replays public commits `private` -> the public branch, resolved via `origin/HEAD` with `master` fallback).
+- `git-util/`: `setup-git-hooks.sh` (sets `core.hooksPath`; owner runs it, it writes git config), `publish.sh` (replays public commits `private` -> the public branch, resolved via `origin/HEAD` with `master` fallback), and `bump.sh` (dependency-pin tail: pushes the dep, then commits the gitlink + a one-line DEVLOG entry in the consumer; runs from the dep or by dep name from the consumer).
 - `setup/`: machine/workspace bootstrap (`fetch-repos.sh`, `fetch-tarballs.sh`, `lib.sh`); expects `$CONFIGROOT` exported by the parent's `sourceme`.
 - `bin/`: standalone tools, incl. `gen_flist.py` (FuseSoC filelist generator).
 - `util/`: standalone utilities, incl. `verify-format-diff.py` (checks a formatting-only diff is only rewraps and dash removals).
-- `tests/`: self-contained test harnesses (`test-git-privacy.sh` exercises the git-privacy hooks and publisher against a scratch repo).
+- `tests/`: self-contained test harnesses (`test-git-privacy.sh` exercises the git-privacy hooks and publisher, `test-bump.sh` the dependency bump script; each builds its own scratch repo).
 - `shell/`, `shortcut-menus/`, `etc/`: dwl session scripts, status helpers, dmenu-style shortcut menus, desktop file.
 
 ## Toolchain and build
