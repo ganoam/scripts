@@ -29,3 +29,5 @@
   Both invocation modes: inside the dep checkout (no argument) or by dep name from the consumer repo; `-n`/`--dry-run` reports the owed push, commit message, and DEVLOG append without doing them.
   Pin safety: only a dep sha that can never reach `origin/*` is refused (an unpublished `private`-branch commit would leave the consumer's public side with a dangling gitlink and leak its subjects through the bump message; published copies carry new shas, so the private sha never lands publicly).
 - `tests/test-bump.sh`: end-to-end harness (consumer + submodule + bare-remote fixture) covering both modes, the no-op case, the clean-index guard, the dirty-DEVLOG refusal, the never-push contract, dry-run non-mutation, and the private-dep pin refusal (18 checks).
+- snippet: `.gitprivate` added so the deferred-items file stays off `origin`.
+- snippet: `AGENTS.md` preamble synced to the checkout-chain wording.
