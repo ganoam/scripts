@@ -3,7 +3,8 @@
 # Integration test for git-util/bump.sh: fixture is a consumer repo
 # with a dependency submodule plus a bare remote for the dep. Runs the
 # real script in both invocation modes and checks gitlink, bump commit,
-# DEVLOG line, and that the dep was pushed first.
+# DEVLOG line, and the never-push contract: the script names the owed
+# dep push instead of doing it; the test does the pushing itself.
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 T=$(mktemp -d /tmp/bump-test.XXXXXX)
@@ -58,14 +59,18 @@ printf '# DEVLOG.md\n' > DEVLOG.md; git add DEVLOG.md; git commit -qm devlog
 cd "$S"
 echo v2 > f.txt; git add f.txt; git commit -qm 'dep change'
 echo v3 > g.txt; git add g.txt; git commit -qm 'dep change 2'
-expect 'bump inside dep: exits 0' 0 bump
+expect_grep 'bump inside dep: names owed push' 'push origin HEAD:master' 0 bump
 check 'gitlink pins new dep HEAD' \
   test "$(gitlink)" = "$(git -C "$S" rev-parse HEAD)"
 expect_grep 'bump commit lists dep commits' 'dep change 2' 0 \
   git -C "$C" log -1 --format=%B
 expect_grep 'consumer DEVLOG gained bump heading' 'bump dep-work [0-9a-f]*\.\.\.[0-9a-f]* (2 commits)' 0 \
   cat "$C/DEVLOG.md"
-check 'dep commits pushed to its remote' \
+check 'bump did not push the dep' \
+  test "$(git --git-dir="$T/dep-origin.git" rev-parse refs/heads/master)" \
+       != "$(git -C "$S" rev-parse HEAD)"
+git -C "$S" push -q
+check 'manual push lands dep commits' \
   test "$(git --git-dir="$T/dep-origin.git" rev-parse refs/heads/master)" \
        = "$(git -C "$S" rev-parse HEAD)"
 
@@ -74,6 +79,7 @@ cd "$S" && echo v4 > f.txt && git add f.txt && git commit -qm 'dep change 3'
 cd "$C"
 expect 'bump by dep name from consumer' 0 bump dep-work
 check 'gitlink at v4' test "$(gitlink)" = "$(git -C "$S" rev-parse HEAD)"
+git -C "$S" push -q
 
 # --- guards ---------------------------------------------------------
 expect 'second bump is a no-op' 0 bump dep-work
@@ -91,6 +97,7 @@ git -C "$C" checkout -q DEVLOG.md
 cd "$S" && echo v6 > f.txt && git add f.txt && git commit -qm 'dep change 5'
 PRELINK=$(gitlink)
 expect_grep 'dry run reports the bump' 'dep change 5' 0 bump -n
+expect_grep 'dry run names owed push' 'push owed.*HEAD:master' 0 bump -n
 check 'dry run left gitlink unchanged' test "$(gitlink)" = "$PRELINK"
 check 'dry run pushed nothing' \
   test "$(git --git-dir="$T/dep-origin.git" rev-parse refs/heads/master)" \

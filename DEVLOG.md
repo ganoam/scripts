@@ -24,7 +24,8 @@
 
 ## 2026-11-22: bump script
 
-- `git-util/bump.sh` added: automates the tail of a dependency change: pushes the dep first (bare `push`, so a dep's configured upstream is honored rather than forcing `origin`), then commits the consumer's updated gitlink with a message listing the dep's new commits plus a one-line consumer DEVLOG entry.
-  Both invocation modes: inside the dep checkout (no argument) or by dep name from the consumer repo; `-n`/`--dry-run` reports the push, commit message, and DEVLOG append without doing them.
-  Pin safety: a dep sha not reachable from any `origin/*` ref is refused (an unpublished `private`-branch commit would leave the consumer's public side with a dangling gitlink and leak its subjects through the bump message; published copies carry new shas, so the private sha never lands publicly).
-- `tests/test-bump.sh`: end-to-end harness (consumer + submodule + bare-remote fixture) covering both modes, the no-op case, the clean-index guard, the dirty-DEVLOG refusal, dry-run non-mutation, and the private-dep pin refusal (16 checks).
+- `git-util/bump.sh` added: automates the tail of a dependency change: commits the consumer's updated gitlink with a message listing the dep's new commits plus a one-line consumer DEVLOG entry.
+  The script never pushes: an unpushed public dep branch is allowed and the owed push is named in the next-steps, which keeps pushes in the owner's hands and sidesteps upstream naming quirks (push.default=simple dies on name-mismatched upstreams, and an eager `git push` could send private-branch work to a mirror).
+  Both invocation modes: inside the dep checkout (no argument) or by dep name from the consumer repo; `-n`/`--dry-run` reports the owed push, commit message, and DEVLOG append without doing them.
+  Pin safety: only a dep sha that can never reach `origin/*` is refused (an unpublished `private`-branch commit would leave the consumer's public side with a dangling gitlink and leak its subjects through the bump message; published copies carry new shas, so the private sha never lands publicly).
+- `tests/test-bump.sh`: end-to-end harness (consumer + submodule + bare-remote fixture) covering both modes, the no-op case, the clean-index guard, the dirty-DEVLOG refusal, the never-push contract, dry-run non-mutation, and the private-dep pin refusal (18 checks).

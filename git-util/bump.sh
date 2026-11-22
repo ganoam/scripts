@@ -1,7 +1,9 @@
 #!/bin/bash
 # Agent-generated; human reviewed; output verified.
-# Tail of a dependency change: push the dep, update the consumer
-# repo's gitlink, and commit the bump there. The bump commit lists
+# Tail of a dependency change: update the consumer repo's gitlink
+# and commit the bump there. The dep's pin must already resolve on
+# its public remote; this script never pushes, it names what to push.
+# The bump commit lists
 # the dep's commits since the previous pin; a one-line DEVLOG entry
 # summarizing them rides in the same commit.
 #
@@ -69,11 +71,12 @@ entry=$(printf '\n## %s: bump %s %s...%s (%s %s)\n' \
 
 if [ "$dry" = 1 ]; then
   echo "dry run: would bump $dep_path (${old:0:8} -> ${new:0:8}, $n $c)"
-  if git -C "$dep" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
-    up=$(git -C "$dep" rev-list --count '@{u}..HEAD')
-    echo "  push: $up unpushed commit(s) -> $(git -C "$dep" rev-parse --abbrev-ref '@{u}')"
+  up_ref=$(git -C "$dep" rev-parse --abbrev-ref '@{u}' 2>/dev/null || true)
+  if [ -n "$up_ref" ]; then
+    up=$(git -C "$dep" rev-list --count "$up_ref..HEAD")
+    echo "  push owed: $up commit(s); git -C $dep push ${up_ref%%/*} HEAD:${up_ref#*/}"
   else
-    echo "  push: would FAIL, no upstream configured for this checkout"
+    echo "  push owed: unknown, no upstream configured for this checkout"
   fi
   echo "  commit message:"
   echo "$msg" | sed 's/^/    /'
@@ -82,24 +85,25 @@ if [ "$dry" = 1 ]; then
   if git -C "$dep" branch -r --contains "$new" | grep -q 'origin/'; then
     echo "  pin: reachable on an origin/* ref"
   else
-    echo "  pin: not on any origin/* ref (needs the push above)"
+    echo "  pin: not on any origin/* ref (needs a push or publish first)"
   fi
   exit 0
 fi
 
-# The dep push must land before the consumer commits the pin, or the
-# consumer could record a sha the dep remote never got. Bare `push`
-# honors the dep's upstream: not every dep pushes to origin (a
-# git-privacy dep pushes its private branch to a mirror).
-git -C "$dep" push
-
-# The pin must resolve on the dep's public remote: a sha living only
-# on a private branch or mirror leaves the consumer's public side
-# with a dangling gitlink and leaks private subjects via the bump
-# message. publish.sh replays private-branch patches under new shas,
-# so a private-branch sha is never reachable from the public branch.
-git -C "$dep" branch -r --contains "$new" | grep -q 'origin/' \
-  || die "$dep_path: $new not on any origin/* ref (dep on a private branch? publish it first)"
+# The pin must resolve on the dep's public remote by the time the
+# consumer is pushed: a sha living only on a private branch or mirror
+# leaves the consumer's public side with a dangling gitlink and leaks
+# private subjects via the bump message. publish.sh replays private-
+# branch patches under new shas, so a private-branch sha can never
+# reach origin -- that still fails here. A merely unpushed public
+# branch does not: the owed push is named in the next-steps.
+if ! git -C "$dep" branch -r --contains "$new" | grep -q 'origin/'; then
+  up_ref=$(git -C "$dep" rev-parse --abbrev-ref '@{u}' 2>/dev/null || true)
+  case $up_ref in
+    origin/*) ;;                                    # unpushed; named at the end
+    *)        die "$dep_path: $new not on any origin/* ref; publish it (or push it to the dep's public branch) first" ;;
+  esac
+fi
 
 {
   [ -f "$consumer/DEVLOG.md" ] || printf '# DEVLOG.md\n'
@@ -109,4 +113,9 @@ git -C "$dep" branch -r --contains "$new" | grep -q 'origin/' \
 git -C "$consumer" add "$dep_path" DEVLOG.md
 git -C "$consumer" commit -m "$msg"
 echo "bump: $dep_path -> $new"
+up_ref=$(git -C "$dep" rev-parse --abbrev-ref '@{u}' 2>/dev/null || true)
+if [ -n "$up_ref" ]; then
+  up=$(git -C "$dep" rev-list --count "$up_ref..HEAD")
+  [ "$up" = 0 ] || echo "next: git -C $dep push ${up_ref%%/*} HEAD:${up_ref#*/}  # $up dep commit(s)"
+fi
 echo "next: git -C $consumer push"
