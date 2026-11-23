@@ -1,6 +1,6 @@
 # scripts
 
-Agent-generated; human reviewed.
+Agent-maintained; human reviewed.
 
 Personal scripts and utilities repo.
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Agent-generated
 """Verify a prose-format sweep: flag every change that is NOT a
 rewrap or a dash removal/replacement.
 

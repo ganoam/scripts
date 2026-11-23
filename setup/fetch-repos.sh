@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Agent-generated; human reviewed, output verified.
 # deps/scripts/setup/fetch-repos.sh [-y|--yes]
 # Downloads/syncs git submodule dependencies only.
 

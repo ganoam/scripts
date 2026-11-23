@@ -1,5 +1,7 @@
 # DEVLOG.md
 
+Agent-maintained.
+
 ## 2026-11-20: agent workflow onboarding
 
 - Onboarded this repo onto the shared agent workflow as a dependency repo: no `deps/workflows` submodule of its own, `AGENTS.md` points at the sibling `../workflows` checkout with `~/workspaceconfig/deps/workflows` and the injected plugin copies as fallback chain.
@@ -70,3 +72,8 @@
 
 - `bin/mdstyle-scan.py` added (committed `b325483`, file marked `Agent-generated`): a read-only MdStyle scanner reporting candidate violations per line: `emdash` (em/en-dashes and `--` surrogates) and `multi` (multiple sentences on one source line); skips code fences, tables, headings, `<!-- name:key:begin -->` generated fences, front matter, and blockquotes.
   Companion to `verify-format-diff.py`: the scanner finds violations in place, the verifier proves a sweep diff changed nothing but format.
+
+## 2026-11-23: provenance marks
+
+- `Agent-maintained` on `DEVLOG.md` and `BACKLOG.md` (which gained its title line to carry the mark), `Agent-generated` on `git-util/setup-git-hooks.sh`.
+  Left unmarked by convention: `AGENTS.md` (byte-identical preamble), `.gitprivate` (workflows precedent), and the owner-authored tools (`verify-format-diff.py`, `gen_flist.py`, `screenshot`, `setup/`, `desktop/`, `menus/`).

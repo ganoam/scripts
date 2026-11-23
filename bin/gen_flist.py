@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Agent generated; human reviewed; output verified.
+# FuseSoC filelist generator: emit the union of all source files used by
+# a list of top-level cores, plus +incdir+ lines for the include dirs.
 import argparse
 import os
 import sys

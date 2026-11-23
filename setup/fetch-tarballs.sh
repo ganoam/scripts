@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Agent-generated; human reviewed, output verified.
 # deps/scripts/setup/fetch-tarballs.sh [-y|--yes]
 # Downloads tar.gz/tgz dependencies described in tarballs.yml
 # at the root of the calling repo.

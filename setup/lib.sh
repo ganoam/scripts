@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Agent-generated; human reviewed, output verified.
 # deps/scripts/setup/lib.sh
 # Shared helpers for bootstrap.sh / fetch-repos.sh / fetch-tarballs.sh
 # Source this; do not execute directly.

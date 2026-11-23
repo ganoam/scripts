@@ -1,4 +1,5 @@
 #!/bin/sh
+# Agent-generated; human reviewed.
 # Point this repo's hooks at the guard hooks shipped in the scripts
 # repo (sibling git-hooks/ dir next to this script). core.hooksPath is
 # set relative to the repo root, so a submodule update alone refreshes
