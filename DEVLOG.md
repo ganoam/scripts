@@ -47,3 +47,10 @@
   Residual: merges and manual cherry-picks on a public-branch checkout bypass `pre-commit`; closing that would need a `commit-msg` gate plus a publisher bypass.
 - `tests/test-git-privacy.sh`: the master-side allow-checks now invoke `10-git-private` directly (the new guard refuses every commit on master through the multiplexer); new checks cover the master block, the private pass, and inertness without `private`; the local-gate dispatch checks moved onto `private`.
 - `README.md`, `AGENTS.md`: shared-guard inventory updated.
+
+## 2026-11-23: dir restructure
+
+- Renamed the non-contract dirs by domain: `shell/` -> `desktop/` (dwl session scripts and status helpers), `shortcut-menus/` -> `menus/`, `util/verify-format-diff.py` -> `bin/` (lands it on PATH via `sourceme`); `etc/` dropped (stale `dwl.desktop`, superseded by `deps/dwl/dwl.desktop`).
+  `git-hooks/`, `git-util/`, `setup/`, `bin/`, `tests/` unchanged: those paths are consumer or PATH contracts.
+- Reference updates outside this repo: `deps/dwl/config.h` and `deps/dwl/dwl.desktop` (`shell/` -> `desktop/`), `sourceme` PATH (`shortcut-menus` -> `menus`), workspaceconfig README, workflows docs (`util/` -> `bin/` path).
+- `README.md` gained a `## Structure` table mapping each dir to how it is reached.

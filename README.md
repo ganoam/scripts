@@ -1,9 +1,22 @@
 # scripts
 
-Agent-generated
+Agent-generated; human reviewed.
 
-Personal scripts and utilities repo; `AGENTS.md` carries the layout and the consuming-repo rules.
-Documentation is partial: only `git-hooks/` is covered below; the rest is pending.
+Personal scripts and utilities repo.
+
+## Structure
+
+| Dir | Contents | Reached via |
+|---|---|---|
+| `git-hooks/` | run-parts hook multiplexers + shared `.d` guards | `core.hooksPath` in consumer repos |
+| `git-util/` | `setup-git-hooks.sh`, `publish.sh`, `bump.sh` | `sourceme` PATH |
+| `setup/` | `fetch-repos.sh`, `fetch-tarballs.sh`, `lib.sh` | `bootstrap.sh` delegates; needs `$CONFIGROOT` |
+| `bin/` | `gen_flist.py`, `verify-format-diff.py`, `screenshot` | `sourceme` PATH |
+| `desktop/` | dwl session scripts and status helpers | absolute paths (`deps/dwl/config.h`, `deps/dwl/dwl.desktop`) |
+| `menus/` | dmenu-style shortcut menus (`bluetooth`, `keyboard-layout`, `tquick`, `wifi`) | `sourceme` PATH |
+| `tests/` | self-contained bash harnesses for the git tooling | manual runs |
+
+PATH membership is declared in `sourceme`; `git-hooks/`, `setup/`, and `desktop/` are reached by path instead.
 
 ## `git-hooks/`
 
@@ -42,6 +55,3 @@ pre-push local gates see every remote, not just the public one.
 - A repo with no `git-hooks/` dir and a `.d` dir with no executables exits 0: the multiplexers are no-ops until a hook file exists.
 - `tests/test-git-privacy.sh` exercises the dispatch: order, stdin replay, abort-on-failure.
 
-## Pending documentation
-
-`git-util/`, `setup/`, `bin/`, `util/`, `tests/`, `shell/`, `shortcut-menus/`, `etc/` are not documented here yet; `AGENTS.md` carries the layout summary meanwhile.
