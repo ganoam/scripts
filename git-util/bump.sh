@@ -37,6 +37,11 @@ else
 fi
 name=$(basename "$dep_path")
 
+# The dep's public branch (origin/HEAD, master fallback): the pin
+# must sit on it (see the reachability guard below).
+public=$(git -C "$dep" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)
+public=${public#origin/}; public=${public:-master}
+
 # Pin bookkeeping: what the consumer records vs the dep's HEAD.
 new=$(git -C "$dep" rev-parse HEAD)
 old=$(git -C "$consumer" ls-tree HEAD -- "$dep_path" | awk '{print $3}')
@@ -71,39 +76,33 @@ entry=$(printf '\n## %s: bump %s %s...%s (%s %s)\n' \
 
 if [ "$dry" = 1 ]; then
   echo "dry run: would bump $dep_path (${old:0:8} -> ${new:0:8}, $n $c)"
-  up_ref=$(git -C "$dep" rev-parse --abbrev-ref '@{u}' 2>/dev/null || true)
-  if [ -n "$up_ref" ]; then
-    up=$(git -C "$dep" rev-list --count "$up_ref..HEAD")
-    echo "  push owed: $up commit(s); git -C $dep push ${up_ref%%/*} HEAD:${up_ref#*/}"
-  else
-    echo "  push owed: unknown, no upstream configured for this checkout"
-  fi
+  up=$(git -C "$dep" rev-list --count "origin/$public..$public" 2>/dev/null || true)
+  echo "  push owed: ${up:-unknown}; git -C $dep push origin $public"
   echo "  commit message:"
   echo "$msg" | sed 's/^/    /'
   echo "  DEVLOG append:"
   echo "$entry" | sed 's/^/    /'
-  if git -C "$dep" branch -r --contains "$new" | grep -q 'origin/'; then
-    echo "  pin: reachable on an origin/* ref"
+  if git -C "$dep" merge-base --is-ancestor "$new" "$public" 2>/dev/null; then
+    echo "  pin: on public branch '$public'"
   else
-    echo "  pin: not on any origin/* ref (needs a push or publish first)"
+    echo "  pin: not on public branch '$public' (merge or publish there first)"
   fi
   exit 0
 fi
 
-# The pin must resolve on the dep's public remote by the time the
-# consumer is pushed: a sha living only on a private branch or mirror
-# leaves the consumer's public side with a dangling gitlink and leaks
-# private subjects via the bump message. publish.sh replays private-
-# branch patches under new shas, so a private-branch sha can never
-# reach origin -- that still fails here. A merely unpushed public
-# branch does not: the owed push is named in the next-steps.
-if ! git -C "$dep" branch -r --contains "$new" | grep -q 'origin/'; then
-  up_ref=$(git -C "$dep" rev-parse --abbrev-ref '@{u}' 2>/dev/null || true)
-  case $up_ref in
-    origin/*) ;;                                    # unpushed; named at the end
-    *)        die "$dep_path: $new not on any origin/* ref; publish it (or push it to the dep's public branch) first" ;;
-  esac
-fi
+# The pin must sit on the dep's public branch by the time the consumer
+# is pushed: a sha living only on a private branch or mirror leaves
+# the consumer's public side with a dangling gitlink and leaks private
+# subjects via the bump message. publish.sh replays side-line patches
+# under new shas (merges of the public branch into private included),
+# so such a sha can never reach origin. Checking ancestry of the
+# public branch itself (not the checkout's upstream) keeps that true
+# no matter which branch the dep checkout is on. An unpushed tip on
+# the public branch passes: the owed push is named in the next-steps.
+git -C "$dep" rev-parse --verify --quiet "$public" >/dev/null \
+  || die "$dep: no local public branch '$public'"
+git -C "$dep" merge-base --is-ancestor "$new" "$public" \
+  || die "$dep_path: $new is not on public branch '$public'; merge or publish it there first"
 
 {
   [ -f "$consumer/DEVLOG.md" ] || printf '# DEVLOG.md\n'
@@ -113,9 +112,10 @@ fi
 git -C "$consumer" add "$dep_path" DEVLOG.md
 git -C "$consumer" commit -m "$msg"
 echo "bump: $dep_path -> $new"
-up_ref=$(git -C "$dep" rev-parse --abbrev-ref '@{u}' 2>/dev/null || true)
-if [ -n "$up_ref" ]; then
-  up=$(git -C "$dep" rev-list --count "$up_ref..HEAD")
-  [ "$up" = 0 ] || echo "next: git -C $dep push ${up_ref%%/*} HEAD:${up_ref#*/}  # $up dep commit(s)"
+# Name the owed dep push: the pin sits on the public branch, so the
+# consumer needs that branch's tip on origin.
+up=$(git -C "$dep" rev-list --count "origin/$public..$public" 2>/dev/null || true)
+if [ "$up" != 0 ]; then
+  echo "next: git -C $dep push origin $public  # ${up:-unpushed} dep commit(s)"
 fi
 echo "next: git -C $consumer push"

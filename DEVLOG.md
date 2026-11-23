@@ -77,3 +77,11 @@ Agent-maintained.
 
 - `Agent-maintained` on `DEVLOG.md` and `BACKLOG.md` (which gained its title line to carry the mark), `Agent-generated` on `git-util/setup-git-hooks.sh`.
   Left unmarked by convention: `AGENTS.md` (byte-identical preamble), `.gitprivate` (workflows precedent), and the owner-authored tools (`verify-format-diff.py`, `gen_flist.py`, `screenshot`, `setup/`, `desktop/`, `menus/`).
+
+## 2026-11-23: bump.sh public-branch guard
+
+- Pin safety now requires the pinned sha to be an ancestor of the dep's resolved public branch (origin/HEAD, `master` fallback), replacing the `@{u}` upstream proxy: a `private` branch tracking an origin ref could previously vouch for a sha that can never reach origin.
+  The ancestry check also refuses private-side merges of the public branch (publish.sh never replays merges), the shape that put a dangling `deps/workflows` gitlink into the consumer's public history today.
+  Owed-push reporting now keys on `origin/<public>..<public>` instead of the checkout's upstream.
+- `tests/test-bump.sh`: refusal patterns updated; new checks cover a private branch tracking `origin/*` and a private-side merge pin (20 checks).
+- `AGENTS.md`: `bump.sh` description corrected: it never pushes; it names the owed push.

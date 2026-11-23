@@ -59,7 +59,7 @@ printf '# DEVLOG.md\n' > DEVLOG.md; git add DEVLOG.md; git commit -qm devlog
 cd "$S"
 echo v2 > f.txt; git add f.txt; git commit -qm 'dep change'
 echo v3 > g.txt; git add g.txt; git commit -qm 'dep change 2'
-expect_grep 'bump inside dep: names owed push' 'push origin HEAD:master' 0 bump
+expect_grep 'bump inside dep: names owed push' 'push origin master' 0 bump
 check 'gitlink pins new dep HEAD' \
   test "$(gitlink)" = "$(git -C "$S" rev-parse HEAD)"
 expect_grep 'bump commit lists dep commits' 'dep change 2' 0 \
@@ -97,7 +97,7 @@ git -C "$C" checkout -q DEVLOG.md
 cd "$S" && echo v6 > f.txt && git add f.txt && git commit -qm 'dep change 5'
 PRELINK=$(gitlink)
 expect_grep 'dry run reports the bump' 'dep change 5' 0 bump -n
-expect_grep 'dry run names owed push' 'push owed.*HEAD:master' 0 bump -n
+expect_grep 'dry run names owed push' 'push owed.*push origin master' 0 bump -n
 check 'dry run left gitlink unchanged' test "$(gitlink)" = "$PRELINK"
 check 'dry run pushed nothing' \
   test "$(git --git-dir="$T/dep-origin.git" rev-parse refs/heads/master)" \
@@ -107,12 +107,21 @@ check 'dry run left DEVLOG untouched' \
 
 # --- dep on a private branch ----------------------------------------
 # A sha living only on a private branch (pushed to a mirror, never to
-# origin) must be refused: the gitlink would dangle publicly.
+# origin) must be refused: the gitlink would dangle publicly. The
+# guard checks ancestry of the public branch, so it must also hold
+# when private happens to track an origin ref, and for merge commits
+# of the public branch into private (publish.sh never replays merges,
+# so such a sha can never reach origin).
 git init -q --bare "$T/dep-mirror.git"
 cd "$S" && git checkout -qb private
 echo s > secret.txt; git add secret.txt; git commit -qm 'private dep change'
 git remote add mirror "$T/dep-mirror.git"; git push -qu mirror private
-expect_grep 'pin to a private-only dep sha: refuses' 'not on any origin' 1 bump
+expect_grep 'pin to a private-only dep sha: refuses' 'not on public branch' 1 bump
+git branch -u origin/master
+expect_grep 'private branch tracking origin: still refuses' 'not on public branch' 1 bump
+git checkout -q master && echo v7 > f.txt && git add f.txt && git commit -qm 'dep change 6'
+git checkout -q private && git merge -q --no-ff master -m 'merge master into private'
+expect_grep 'pin to a private-side merge of public: refuses' 'not on public branch' 1 bump
 
 echo
 echo "$pass passed, $fail failed"
