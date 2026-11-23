@@ -38,7 +38,7 @@ region if it contains anything else.
   printed old/new segments and context are authoritative; the atom
   list is a hint only.
 
-Usage: verify-format-diff.py [repo]   (default: cwd)
+Usage: verify-format-diff.py [path]   (default: cwd)
 """
 
 import difflib
@@ -199,8 +199,16 @@ def check(path, old, new):
 # ------------------------------------------------------------------
 
 def main():
-    repo = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
-    repo = os.path.abspath(repo)
+    # The argument names a location, not a repo root: porcelain paths
+    # below are reported relative to the toplevel and the file reads
+    # join them onto `repo`, so resolve the enclosing repo first.
+    # Default location is the call site, i.e. the repo it sits in.
+    where = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.getcwd())
+    if not os.path.isdir(where):     # tolerate a file path argument
+        where = os.path.dirname(where)
+    repo = subprocess.run(['git', '-C', where, 'rev-parse', '--show-toplevel'],
+                          capture_output=True, text=True,
+                          check=True).stdout.strip()
     # `git status --porcelain` is read-only and covers every diff
     # class: modified, staged, deleted, renamed, and untracked files
     # (untracked compare against an empty old stream, so a new file
@@ -212,19 +220,27 @@ def main():
         if not line:
             continue
         state, path = line[:2], line[3:]
-        if ' -> ' in path:          # rename entry: keep the new name
-            path = path.split(' -> ', 1)[1]
+        old_name = None            # set on rename entries (old -> new)
+        if ' -> ' in path:
+            old_name, path = path.split(' -> ', 1)
+            old_name = old_name.strip('"')
         path = path.strip('"')
         full = os.path.join(repo, path)
         if 'D' in state:
             old = subprocess.run(['git', '-C', repo, 'show', f'HEAD:{path}'],
                                  capture_output=True, text=True).stdout
             new = ''
+        elif not os.path.isfile(full):
+            # gitlinks and untracked directories have no diffable file
+            # content; name them so the review list stays complete.
+            print(f'== {path} (skipped: not a regular file)')
+            continue
         elif state == '??':
             old = ''
             new = open(full, encoding='utf-8', errors='replace').read()
         else:
-            old = subprocess.run(['git', '-C', repo, 'show', f'HEAD:{path}'],
+            old = subprocess.run(['git', '-C', repo, 'show',
+                                  f'HEAD:{old_name or path}'],
                                  capture_output=True, text=True,
                                  check=True).stdout
             new = open(full, encoding='utf-8', errors='replace').read()

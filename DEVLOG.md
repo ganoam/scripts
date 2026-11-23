@@ -54,3 +54,13 @@
   `git-hooks/`, `git-util/`, `setup/`, `bin/`, `tests/` unchanged: those paths are consumer or PATH contracts.
 - Reference updates outside this repo: `deps/dwl/config.h` and `deps/dwl/dwl.desktop` (`shell/` -> `desktop/`), `sourceme` PATH (`shortcut-menus` -> `menus`), workspaceconfig README, workflows docs (`util/` -> `bin/` path).
 - `README.md` gained a `## Structure` table mapping each dir to how it is reached.
+
+## 2026-11-23: verify-format-diff runs from any subdir
+
+- `bin/verify-format-diff.py` resolves its location argument (default: cwd, i.e. the repo it is called from) to the enclosing repo's toplevel via `git rev-parse --show-toplevel`: porcelain paths are root-relative, so a call from a subdirectory previously joined them onto the subdir and died in `open()`.
+- Same pass on adjacent crashes of the same wrong-basis class: changed submodule gitlinks and untracked directories are skipped with a `== path (skipped: not a regular file)` note (a gitlink's `HEAD:path` is a commit, not a blob; `git show` exited 128), and staged renames diff `HEAD:old` against worktree `new` instead of failing on `HEAD:new`.
+
+## 2026-11-23: verify-format-diff checks only checked-in files
+
+- The check now covers only files with a `HEAD` blob: untracked (`??`), newly-added (`A`), and copied (`C`) entries are skipped outright; an untracked file previously diffed against an empty stream and surfaced as a whole-file insertion, which could dump megabytes into the region context.
+  Typechanged symlinks join gitlinks in the named non-file skip; deleted and renamed entries still compare against their `HEAD:` blob as before.
