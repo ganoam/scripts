@@ -1,0 +1,45 @@
+#!/bin/bash
+# Agent-generated; human reviewed.
+# A staged submodule gitlink must point at a sha the dep's public
+# remote can serve. Anything living only on a private branch or
+# mirror leaves the consumer's public side with a dangling gitlink
+# once the commit is replayed by publish.sh, and leaks private
+# subjects through the bump message.
+#
+# A pin passes when the dep checkout can prove it public-bound: the
+# sha is an ancestor of the dep's public branch (origin/HEAD,
+# master fallback), on the local branch or its origin remote-
+# tracking ref. bump.sh applies the same predicate to its own
+# pins, so its commits pass cleanly; this gate exists for hand
+# commits, which sweep up whatever gitlink the dep checkout holds.
+#
+# Only gitlinks this commit changes are checked, so a stale bad
+# pin does not block unrelated work.
+#
+# Inert without staged gitlinks.
+
+fail=0
+# sha/path pairs: every gitlink this commit stages, read off the
+# index diff below (new mode 160000 -> its new sha and path).
+while read -r sha path; do
+  [ -n "$sha" ] || continue
+  if ! git -C "$path" rev-parse --verify --quiet "$sha^{commit}" >/dev/null; then
+    echo "pre-commit: cannot verify pin $sha for $path"
+    echo "  no such commit in the dep checkout; init the submodule"
+    echo "  or unstage the gitlink."
+    fail=1; continue
+  fi
+  public=$(git -C "$path" symbolic-ref --quiet --short \
+             refs/remotes/origin/HEAD 2>/dev/null || true)
+  public=${public#origin/}; public=${public:-master}
+  if git -C "$path" merge-base --is-ancestor "$sha" "$public" 2>/dev/null \
+    || git -C "$path" merge-base --is-ancestor "$sha" "origin/$public" 2>/dev/null; then
+    continue
+  fi
+  echo "pre-commit: $path pinned at ${sha:0:8}, off the dep's public branch '$public'"
+  echo "  private/side-line shas dangle publicly; check the dep out on its"
+  echo "  public branch first, or use --no-verify if this is intentional."
+  fail=1
+done < <(git diff --cached --raw | awk '$2 == "160000" {print $4, $6}')
+
+exit "$fail"

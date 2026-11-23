@@ -37,6 +37,7 @@ The first nonzero exit aborts; later hooks never run.
 ### Shared guards
 
 - `<hook>.d/10-git-private`: the git-privacy file-boundary guards; see `git-util/` for the rest of the mechanism.
+- `pre-commit.d/15-gitlink-public`: staged submodule gitlinks must pin a sha on the dep's public branch (`origin/HEAD`, `master` fallback), local or `origin/` tracking ref; private/side-line shas that would dangle publicly are refused.
 - `pre-commit.d/20-no-public-commit`: the public branch is publish-only; `git commit` on it is refused, so it can only be advanced by `git-util/publish.sh`.
   Inert in repos without a `private` branch.
 

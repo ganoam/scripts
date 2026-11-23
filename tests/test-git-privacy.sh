@@ -159,6 +159,38 @@ printf '#!/bin/bash\nexit 1\n' > git-hooks/pre-commit.d/marker
 expect 'failing local gate aborts the hook' 1 pre_commit
 git reset -q; git clean -fdq
 
+# --- pre-commit.d/15-gitlink-public: staged gitlinks ------------------
+# A dep pinned at a private/side-line sha must be refused: bump.sh
+# checks its own pins, this covers hand commits sweeping up whatever
+# the dep checkout holds. Gitlinks are staged via --cacheinfo; the
+# dep clone needs its public line on origin/HEAD (checkout master
+# last so the clone's default lands there).
+gitlink_public() { bash "$ROOT/git-hooks/pre-commit.d/15-gitlink-public"; }
+D2=$T/dep2
+git init -q "$D2" && git -C "$D2" symbolic-ref HEAD refs/heads/master
+git -C "$D2" commit -qm 'dep init' --allow-empty
+pub_sha=$(git -C "$D2" rev-parse HEAD)
+git -C "$D2" checkout -qb private && git -C "$D2" commit -qm 'dep private' --allow-empty
+priv_sha=$(git -C "$D2" rev-parse HEAD)
+git -C "$D2" checkout -q master && git -C "$D2" commit -qm 'dep pub2' --allow-empty
+git -C "$D2" checkout -q private && git -C "$D2" merge -qm 'merge' master
+merge_sha=$(git -C "$D2" rev-parse HEAD)
+git -C "$D2" checkout -q master
+git -c protocol.file.allow=always clone -q "$D2" deps/dep
+
+git update-index --add --cacheinfo 160000,"$pub_sha",deps/dep
+expect 'gitlink: public-branch pin passes' 0 gitlink_public
+git update-index --add --cacheinfo 160000,"$priv_sha",deps/dep
+expect_grep 'gitlink: private-side sha refused' 'public branch' 1 gitlink_public
+git update-index --add --cacheinfo 160000,"$merge_sha",deps/dep
+expect_grep 'gitlink: private-side merge refused' 'public branch' 1 gitlink_public
+git update-index --add --cacheinfo 160000,"$pub_sha",deps/ghost
+expect_grep 'gitlink: pin without checkout refused' 'cannot verify' 1 gitlink_public
+git reset -q
+echo g > g.md; git add g.md
+expect 'gitlink: no gitlink change is inert' 0 gitlink_public
+git reset -q; git clean -fdq
+
 echo
 echo "$pass passed, $fail failed"
 [ "$fail" = 0 ]

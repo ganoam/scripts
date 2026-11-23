@@ -85,3 +85,10 @@ Agent-maintained.
   Owed-push reporting now keys on `origin/<public>..<public>` instead of the checkout's upstream.
 - `tests/test-bump.sh`: refusal patterns updated; new checks cover a private branch tracking `origin/*` and a private-side merge pin (20 checks).
 - `AGENTS.md`: `bump.sh` description corrected: it never pushes; it names the owed push.
+
+## 2026-11-23: gitlink-public guard
+
+- `git-hooks/pre-commit.d/15-gitlink-public` added: refuses commits staging a submodule gitlink pinned off the dep's public line (ancestor of the local public branch or its `origin/` tracking ref; `origin/HEAD`, `master` fallback), and refuses unverifiable pins outright.
+  Trigger: a hand commit in `~/workspaceconfig` swept the private-side merge `c5f4012` into the `deps/scripts` gitlink hours after the same shape hit `deps/workflows`; bump.sh's own guard cannot police commits it does not make.
+- `tests/test-git-privacy.sh`: dep-clone fixture plus `--cacheinfo`-staged pins covering public pass, private-sha and private-merge refusal, missing checkout, and inertness without gitlink changes (28 checks).
+- `README.md`, `AGENTS.md`: shared-guard inventory updated.
