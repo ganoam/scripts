@@ -1,53 +1,25 @@
 #!/bin/bash
-# Agent-generated; human reviewed; output verified.
-# Enforce the private/public file boundary at commit time.
-#
-# The private file list lives in .gitprivate on the `private` branch
-# (read via `git show`, applies regardless of checked-out branch).
-#
-# On the public branch (origin/HEAD, default `master`): refuse
-# staging any .gitprivate file.
-# On `private`: refuse commits that mix .gitprivate files with public
-#               files -- publish.sh replays public commits onto the
-#               public branch and cannot split a mixed commit.
-branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+# Agent-generated; human reviewed.
+# Run-parts multiplexer for git hooks; this file keeps the hook name
+# consumers point core.hooksPath at. Executes, in order:
+#   <this dir>/<hook>.d/*          shared guards shipped here
+#   <repo>/git-hooks/<hook>.d/*    consumer-local gates
+# where <hook> is this file's basename (pre-push, pre-commit, ...).
+# Each hook gets the original args and a replayable copy of stdin
+# (pre-push's pushed-ref list); the first nonzero exit aborts.
+stdin_save=$(mktemp)
+trap 'rm -f "$stdin_save"' EXIT
+[ -t 0 ] || cat > "$stdin_save"   # skip when run by hand on a tty
 
-# The public branch is origin/HEAD, falling back to master.
-public=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)
-public=${public#origin/}; public=${public:-master}
+self_dir="$(cd "$(dirname "$0")" && pwd)"
+repo=$(git rev-parse --show-toplevel)
+name=$(basename "$0")
 
-private_set=$(git show private:.gitprivate 2>/dev/null \
-  | sed 's/#.*//; s/^ *//; s/ *$//' | grep -v '^$' | LC_ALL=C sort)
-[ -n "$private_set" ] || exit 0
-
-# An entry matches a path equal to it, or every path below it when it
-# names a directory (gitignore-style, repo-root relative).
-private_filter() {
-  local p e
-  while IFS= read -r p; do          # each path on stdin
-    while IFS= read -r e; do        # each .gitprivate entry
-      case $p in "$e"|"$e"/*) echo "$p"; break ;; esac
-    done <<< "$private_set"
-  done
-}
-
-staged=$(git diff --cached --name-only | LC_ALL=C sort)
-private_staged=$(echo "$staged" | private_filter)
-public_staged=$(comm -23 <(echo "$staged") <(echo "$private_staged"))
-
-if [ "$branch" = "$public" ] && [ -n "$private_staged" ]; then
-  echo "pre-commit: .gitprivate files staged on $public:"
-  echo "$private_staged" | sed 's/^/  /'
-  echo "commit them on the 'private' branch instead."
-  exit 1
-fi
-
-if [ "$branch" = "private" ] && [ -n "$private_staged" ] && [ -n "$public_staged" ]; then
-  echo "pre-commit: commit mixes private and public files:"
-  echo "  private: $private_staged"
-  echo "  public:  $(echo "$public_staged" | head -5 | tr '\n' ' ')..."
-  echo "split into two commits (private files in their own commit),"
-  echo "or use --no-verify if this is intentional."
-  exit 1
-fi
+for dir in "$self_dir/$name.d" "$repo/git-hooks/$name.d"; do
+    [ -d "$dir" ] || continue
+    for hook in "$dir"/*; do
+      { [ -f "$hook" ] && [ -x "$hook" ]; } || continue # -f: regular files (no dirs) -x: executables
+        "$hook" "$@" < "$stdin_save" || exit 1          # run with original args; < replay stdin stream
+    done
+done
 exit 0

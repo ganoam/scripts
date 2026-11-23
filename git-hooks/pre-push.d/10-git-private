@@ -1,0 +1,43 @@
+#!/bin/bash
+# Agent-generated; human reviewed; output verified.
+# Block pushes to 'origin' (public remote) carrying files listed in
+# .gitprivate: either changed in the pushed range or present in the
+# pushed tree.
+# stdin: <local ref> <local sha> <remote ref> <remote sha>
+remote="$1"
+[ "$remote" = "origin" ] || exit 0
+
+private_set=$(git show private:.gitprivate 2>/dev/null \
+  | sed 's/#.*//; s/^ *//; s/ *$//' | grep -v '^$' | LC_ALL=C sort)
+[ -n "$private_set" ] || exit 0
+
+# An entry matches a path equal to it, or every path below it when it
+# names a directory (gitignore-style, repo-root relative).
+private_filter() {
+  local p e
+  while IFS= read -r p; do          # each path on stdin
+    while IFS= read -r e; do        # each .gitprivate entry
+      case $p in "$e"|"$e"/*) echo "$p"; break ;; esac
+    done <<< "$private_set"
+  done
+}
+
+zero=0000000000000000000000000000000000000000
+while read local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue   # branch deletion
+  bad=$(git ls-tree -r "$local_sha" --name-only | LC_ALL=C sort \
+        | private_filter)
+  if [ "$remote_sha" != "$zero" ]; then
+    # Scan every commit in the pushed range, not just the endpoint
+    # diff: a private file added and removed inside the range leaks too.
+    changed=$(git log --format= -m --name-only "$remote_sha..$local_sha" \
+              | grep . | LC_ALL=C sort -u | private_filter)
+    bad=$(printf '%s\n%s\n' "$bad" "$changed" | LC_ALL=C sort -u | grep .)
+  fi
+  if [ -n "$bad" ]; then
+    echo "pre-push: refusing $local_ref -> origin, .gitprivate files:"
+    echo "$bad" | sed 's/^/  /'
+    exit 1
+  fi
+done
+exit 0

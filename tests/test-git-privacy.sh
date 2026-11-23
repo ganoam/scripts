@@ -118,6 +118,26 @@ expect_grep 'pre-push: blocks private file added and removed inside range' 'note
 expect 'pre-push: allows clean tree and range' 0 \
   pre_push origin "$PREV" "$ZERO"
 
+# --- repo-local .d hook dispatch --------------------------------------
+# Consumers add gates under <repo>/git-hooks/<hook>.d/; they run after
+# the shared guards and each gets a replayed copy of stdin.
+git checkout -q master
+mkdir -p git-hooks/pre-commit.d git-hooks/pre-push.d
+printf '#!/bin/bash\ntouch %s/local-pc\n' "$T" \
+  > git-hooks/pre-commit.d/marker
+printf '#!/bin/bash\ncat > %s/local-stdin\n' "$T" \
+  > git-hooks/pre-push.d/see-stdin
+chmod +x git-hooks/pre-commit.d/marker git-hooks/pre-push.d/see-stdin
+echo d > d.md; git add d.md
+expect 'local pre-commit.d gate runs' 0 pre_commit
+check 'local gate was executed' test -f "$T/local-pc"
+expect 'local pre-push.d gate runs on non-origin remote' 0 \
+  pre_push self "$ZERO" "$ZERO"
+check 'local gate received the pushed ref list' test -s "$T/local-stdin"
+printf '#!/bin/bash\nexit 1\n' > git-hooks/pre-commit.d/marker
+expect 'failing local gate aborts the hook' 1 pre_commit
+git reset -q; git clean -fdq
+
 echo
 echo "$pass passed, $fail failed"
 [ "$fail" = 0 ]
