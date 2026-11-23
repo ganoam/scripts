@@ -1,6 +1,0 @@
-[Desktop Entry]
-Name=dwl
-Comment=dwm for wayland
-Exec=bash -c 'source ~/workspaceconfig/sourceme/sourceme.sh; dwl -d -s ~/workspaceconfig/DEPS/scripts/shell/dwl-startup.sh'
-Type=Application
-
