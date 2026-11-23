@@ -210,9 +210,9 @@ def main():
                           capture_output=True, text=True,
                           check=True).stdout.strip()
     # `git status --porcelain` is read-only and covers every diff
-    # class: modified, staged, deleted, renamed, and untracked files
-    # (untracked compare against an empty old stream, so a new file
-    # reports as one insertion region, which is correct).
+    # class; untracked and newly-added/copied entries are skipped in
+    # the loop: the check verifies checked-in files against HEAD, so
+    # content with no HEAD blob is out of scope.
     out = subprocess.run(['git', '-C', repo, 'status', '--porcelain'],
                          capture_output=True, text=True, check=True).stdout
     total_flags = total_sub = total_del = 0
@@ -230,14 +230,13 @@ def main():
             old = subprocess.run(['git', '-C', repo, 'show', f'HEAD:{path}'],
                                  capture_output=True, text=True).stdout
             new = ''
-        elif not os.path.isfile(full):
-            # gitlinks and untracked directories have no diffable file
+        elif state == '??' or 'A' in state or 'C' in state:
+            continue    # no HEAD blob: not a checked-in file
+        elif os.path.islink(full) or not os.path.isfile(full):
+            # gitlinks and typechanged symlinks carry no diffable file
             # content; name them so the review list stays complete.
             print(f'== {path} (skipped: not a regular file)')
             continue
-        elif state == '??':
-            old = ''
-            new = open(full, encoding='utf-8', errors='replace').read()
         else:
             old = subprocess.run(['git', '-C', repo, 'show',
                                   f'HEAD:{old_name or path}'],
