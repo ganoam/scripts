@@ -9,11 +9,11 @@ Personal scripts and utilities repo.
 | Dir | Contents | Reached via |
 |---|---|---|
 | `git-hooks/` | run-parts hook multiplexers + shared `.d` guards | `core.hooksPath` in consumer repos |
-| `git-util/` | `setup-git-hooks.sh`, `publish.sh`, `bump.sh` | `sourceme` PATH |
-| `setup/` | `fetch-repos.sh`, `fetch-tarballs.sh`, `lib.sh` | `bootstrap.sh` delegates; needs `$CONFIGROOT` |
-| `bin/` | `gen_flist.py`, `verify-format-diff.py`, `screenshot` | `sourceme` PATH |
-| `desktop/` | dwl session scripts and status helpers | absolute paths (`deps/dwl/config.h`, `deps/dwl/dwl.desktop`) |
-| `menus/` | dmenu-style shortcut menus (`bluetooth`, `keyboard-layout`, `tquick`, `wifi`) | `sourceme` PATH |
+| `git-util/` | git-privacy workflow tools (hook setup, publish, dep bump) | `sourceme` PATH |
+| `setup/` | bootstrap fetch/build helpers | `bootstrap.sh` delegates; needs `$CONFIGROOT` |
+| `bin/` | standalone command-line tools | `sourceme` PATH |
+| `desktop/` | dwl session scripts and status helpers | absolute paths |
+| `menus/` | dmenu-style shortcut menus | `sourceme` PATH |
 | `tests/` | self-contained bash harnesses for the git tooling | manual runs |
 
 PATH membership is declared in `sourceme`; `git-hooks/`, `setup/`, and `desktop/` are reached by path instead.
