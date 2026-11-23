@@ -23,7 +23,10 @@ The first nonzero exit aborts; later hooks never run.
 
 ### Shared guards
 
-`<hook>.d/10-git-private` holds the git-privacy guards; see `git-util/` for the rest of the mechanism.
+- `<hook>.d/10-git-private`: the git-privacy file-boundary guards; see `git-util/` for the rest of the mechanism.
+- `pre-commit.d/20-no-public-commit`: the public branch is publish-only; `git commit` on it is refused, so it can only be advanced by `git-util/publish.sh`.
+  Inert in repos without a `private` branch.
+
 Numeric prefixes set execution order inside a `.d` dir (shell glob order): `10-` leaves room to slot earlier entries later.
 
 ### Adding a consumer-local gate

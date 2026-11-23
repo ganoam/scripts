@@ -1,0 +1,30 @@
+#!/bin/bash
+# Agent-generated
+# The public branch is publish-only: it may advance only through
+# git-util/publish.sh. Refuse `git commit` while it is checked out.
+#
+# Inert where the private/public split is not in use (no `private`
+# branch): consumers without the split commit to their public branch
+# normally.
+#
+# The publisher is unaffected by construction: publish.sh advances
+# the branch via `git cherry-pick` in a temp worktree, which does not
+# run pre-commit. For the same reason this guard does not cover
+# merges or manual cherry-picks on the public branch; closing that
+# would need a commit-msg gate plus a publisher bypass.
+
+git rev-parse --verify --quiet refs/heads/private >/dev/null || exit 0
+
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+# The public branch is origin/HEAD, falling back to master.
+public=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)
+public=${public#origin/}; public=${public:-master}
+
+if [ "$branch" = "$public" ]; then
+  echo "pre-commit: '$public' is publish-only; direct commits are refused."
+  echo "  commit on 'private' and let git-util/publish.sh advance '$public',"
+  echo "  or use --no-verify if this is intentional."
+  exit 1
+fi
+exit 0

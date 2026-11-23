@@ -28,7 +28,7 @@ Project-local recipes: none yet.
 
 Everything is authored here; nothing is vendored.
 
-- `git-hooks/`: run-parts hook multiplexers (`pre-commit`, `pre-push`) that consumers point `core.hooksPath` at; shared guards live in `<hook>.d/` (currently `10-git-private`, the git-privacy guards) and run first, consumer repos add local gates in their own `git-hooks/<hook>.d/`; convention documented in `README.md`.
+- `git-hooks/`: run-parts hook multiplexers (`pre-commit`, `pre-push`) that consumers point `core.hooksPath` at; shared guards live in `<hook>.d/` (currently `10-git-private`, the git-privacy file guards, and `20-no-public-commit`, which keeps the public branch publish-only) and run first, consumer repos add local gates in their own `git-hooks/<hook>.d/`; convention documented in `README.md`.
 - `git-util/`: `setup-git-hooks.sh` (sets `core.hooksPath`; owner runs it, it writes git config), `publish.sh` (replays public commits `private` -> the public branch, resolved via `origin/HEAD` with `master` fallback), and `bump.sh` (dependency-pin tail: pushes the dep, then commits the gitlink + a one-line DEVLOG entry in the consumer; runs from the dep or by dep name from the consumer).
 - `setup/`: machine/workspace bootstrap (`fetch-repos.sh`, `fetch-tarballs.sh`, `lib.sh`); expects `$CONFIGROOT` exported by the parent's `sourceme`.
 - `bin/`: standalone tools, incl. `gen_flist.py` (FuseSoC filelist generator).

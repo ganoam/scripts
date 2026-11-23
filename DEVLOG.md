@@ -31,3 +31,19 @@
 - `tests/test-bump.sh`: end-to-end harness (consumer + submodule + bare-remote fixture) covering both modes, the no-op case, the clean-index guard, the dirty-DEVLOG refusal, the never-push contract, dry-run non-mutation, and the private-dep pin refusal (18 checks).
 - snippet: `.gitprivate` added so the deferred-items file stays off `origin`.
 - snippet: `AGENTS.md` preamble synced to the checkout-chain wording.
+
+## 2026-11-23: hook multiplexers
+
+- `git-hooks/pre-commit` and `git-hooks/pre-push` are now run-parts multiplexers: each saves stdin to a temp file once, then runs every executable in its own `<hook>.d/` (shared guards first, currently `10-git-private`) and then the calling repo's `git-hooks/<hook>.d/` gates; the first nonzero exit aborts the hook.
+  The split lets consumer repos add local gates (e.g. workspaceconfig's `pre-push.d/readme-docs`) without forking the shared guards; numeric prefixes set `.d` order.
+- `README.md` added: documents the dispatch convention and how consumers add local gates; only `git-hooks/` is covered so far.
+- `tests/test-git-privacy.sh` gained repo-local `.d` dispatch checks: local gates run after the shared guards, get the replayed stdin, and can veto the hook.
+
+## 2026-11-23: publish-only public branch
+
+- `git-hooks/pre-commit.d/20-no-public-commit`: new shared guard refusing `git commit` on the resolved public branch (origin/HEAD, `master` fallback), so it can only advance through `git-util/publish.sh`.
+  Inert where no `private` branch exists, so consumers without the split commit normally.
+  The publisher is unaffected by construction: it advances the branch via `cherry-pick` in a temp worktree, which never runs `pre-commit`.
+  Residual: merges and manual cherry-picks on a public-branch checkout bypass `pre-commit`; closing that would need a `commit-msg` gate plus a publisher bypass.
+- `tests/test-git-privacy.sh`: the master-side allow-checks now invoke `10-git-private` directly (the new guard refuses every commit on master through the multiplexer); new checks cover the master block, the private pass, and inertness without `private`; the local-gate dispatch checks moved onto `private`.
+- `README.md`, `AGENTS.md`: shared-guard inventory updated.

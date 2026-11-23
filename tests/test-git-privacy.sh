@@ -36,6 +36,9 @@ expect_grep() {
 check() { local desc=$1; shift; if "$@" >/dev/null 2>&1; then ok "$desc"; else bad "$desc"; fi; }
 
 pre_commit() { bash "$ROOT/git-hooks/pre-commit"; }
+# 10-git-private invoked directly: unit-checks the file-boundary guard
+# without 20-no-public-commit, which refuses every commit on master.
+git_private() { bash "$ROOT/git-hooks/pre-commit.d/10-git-private"; }
 pre_push()   { printf 'refs/heads/b %s refs/heads/b %s\n' "$2" "$3" \
                | bash "$ROOT/git-hooks/pre-push" "$1" url; }
 publish()    { bash "$ROOT/git-util/publish.sh" "$@"; }
@@ -79,7 +82,7 @@ echo l > notes/leak.md; git add notes/leak.md
 expect_grep 'master: blocks file under private dir' 'notes/leak.md' 1 pre_commit
 git reset -q
 echo x > notesx.md; git add notesx.md
-expect 'master: path boundary, notesx.md is not notes/' 0 pre_commit
+expect 'master: path boundary, notesx.md is not notes/' 0 git_private
 git reset -q
 echo s > secret.md; git add secret.md
 expect_grep 'master: blocks exact private file' 'secret.md' 1 pre_commit
@@ -88,7 +91,7 @@ echo t > tomb/t.md; git add tomb/t.md
 expect_grep 'master: tombstone entry covers new dir' 'tomb/t.md' 1 pre_commit
 git reset -q
 echo c > clean.md; git add clean.md
-expect 'master: allows public file' 0 pre_commit
+expect 'master: allows public file' 0 git_private
 git reset -q; git clean -fdq
 
 # --- pre-commit on private ------------------------------------------
@@ -98,6 +101,23 @@ expect 'private: allows private-only commit' 0 pre_commit
 echo p2 > pub2.md; git add pub2.md
 expect 'private: blocks mixed commit' 1 pre_commit
 git reset -q; git clean -fdq
+
+# --- pre-commit: public branch is publish-only ----------------------
+git checkout -q master
+echo np > nopub.md; git add nopub.md
+expect_grep 'master: blocks direct commit' 'publish.sh' 1 pre_commit
+git reset -q; git clean -fdq
+git checkout -q private
+echo np2 > pub3.md; git add pub3.md
+expect 'private: commit still allowed' 0 pre_commit
+git reset -q; git clean -fdq
+# Without the private/public split the guard is inert:
+git checkout -q master
+git branch -m private notprivate
+echo z > z.md; git add z.md
+expect 'no private branch: master commit passes' 0 pre_commit
+git reset -q; git clean -fdq
+git branch -m notprivate private
 
 # --- pre-push ---------------------------------------------------------
 expect 'pre-push: ignores non-origin remote' 0 \
@@ -121,7 +141,8 @@ expect 'pre-push: allows clean tree and range' 0 \
 # --- repo-local .d hook dispatch --------------------------------------
 # Consumers add gates under <repo>/git-hooks/<hook>.d/; they run after
 # the shared guards and each gets a replayed copy of stdin.
-git checkout -q master
+# Runs on private: master refuses every commit (20-no-public-commit).
+git checkout -q private
 mkdir -p git-hooks/pre-commit.d git-hooks/pre-push.d
 printf '#!/bin/bash\ntouch %s/local-pc\n' "$T" \
   > git-hooks/pre-commit.d/marker
