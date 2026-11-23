@@ -59,8 +59,14 @@
 
 - `bin/verify-format-diff.py` resolves its location argument (default: cwd, i.e. the repo it is called from) to the enclosing repo's toplevel via `git rev-parse --show-toplevel`: porcelain paths are root-relative, so a call from a subdirectory previously joined them onto the subdir and died in `open()`.
 - Same pass on adjacent crashes of the same wrong-basis class: changed submodule gitlinks and untracked directories are skipped with a `== path (skipped: not a regular file)` note (a gitlink's `HEAD:path` is a commit, not a blob; `git show` exited 128), and staged renames diff `HEAD:old` against worktree `new` instead of failing on `HEAD:new`.
+- snippet: `README.md` structure table generalized to per-dir roles instead of file lists, so adding a tool needs no table edit.
 
 ## 2026-11-23: verify-format-diff checks only checked-in files
 
 - The check now covers only files with a `HEAD` blob: untracked (`??`), newly-added (`A`), and copied (`C`) entries are skipped outright; an untracked file previously diffed against an empty stream and surfaced as a whole-file insertion, which could dump megabytes into the region context.
   Typechanged symlinks join gitlinks in the named non-file skip; deleted and renamed entries still compare against their `HEAD:` blob as before.
+
+## 2026-11-23: mdstyle-scan
+
+- `bin/mdstyle-scan.py` added (committed `b325483`, file marked `Agent-generated`): a read-only MdStyle scanner reporting candidate violations per line: `emdash` (em/en-dashes and `--` surrogates) and `multi` (multiple sentences on one source line); skips code fences, tables, headings, `<!-- name:key:begin -->` generated fences, front matter, and blockquotes.
+  Companion to `verify-format-diff.py`: the scanner finds violations in place, the verifier proves a sweep diff changed nothing but format.
