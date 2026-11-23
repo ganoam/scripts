@@ -14,7 +14,7 @@ It carries no `deps/workflows` submodule of its own; it follows the shared workf
 
 - Commit style: `[area] short lowercase summary` (see `git log`).
 - `git-hooks/` and `git-util/` are shared API: every consumer repo that ran `setup-git-hooks.sh` executes these files, so interface changes propagate to all consumers on their next submodule bump.
-- No `.gitprivate` split is in use here; everything committed goes to `origin` as-is.
+- The git-privacy split is in use here: work lands on `private` (pushed to `mirror`), `git-util/publish.sh` replays public commits onto `main` for `origin`.
 
 ## Reusable workflows
 
