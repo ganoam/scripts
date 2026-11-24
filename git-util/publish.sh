@@ -151,18 +151,18 @@ for item in "${pick[@]}"; do
     planted=
     for e in $entries; do
       while IFS= read -r p; do
-        git -C "$wt" checkout -q "$xsha" -- "$p"
-        planted="$planted $p"
+        git -C "$wt" checkout -q "$xsha" -- "$p"; planted=1
       done < <(git ls-tree -r --name-only "$xsha" -- "$e")
     done
-    if [ -z "$planted" ]; then
-      echo "  plant (nothing at ${xsha:0:8}) $entries"
-    elif git -C "$wt" diff --cached --quiet; then
-      echo "  plant (already present) $entries"
-    else
+    files=$(git -C "$wt" diff --cached --name-only | paste -sd' ' -)
+    if [ -n "$files" ]; then
       git -C "$wt" commit -qm \
-        "[git-privacy] publish $entries from private (${xsha:0:8})"
-      echo "  $(git -C "$wt" rev-parse --short HEAD) <- plant $entries"
+        "[publish] publish $files from private (${xsha:0:8})"
+      echo "  $(git -C "$wt" rev-parse --short HEAD) <- plant $files"
+    elif [ -z "$planted" ]; then
+      echo "  plant (nothing at ${xsha:0:8}) $entries"
+    else
+      echo "  plant (already present) $entries"
     fi
     continue
   fi

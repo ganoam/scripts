@@ -136,8 +136,8 @@ expect 'publish lands plant and later picks' 0 publish
 check 'graduated file modified on master' \
   test "$(git -C "$R" show master:priv/q.md)" = 'q
 edit'
-check 'synthesized publish commit on master' \
-  bash -c "git -C '$R' log --format=%s master | grep -q 'publish priv from private'"
+check 'synthesized publish commit names the added files' \
+  bash -c "git -C '$R' log --format=%s master | grep -q 'publish priv/q.md from private'"
 
 # --- pre-commit on master ------------------------------------------
 git checkout -q master
