@@ -54,13 +54,12 @@ else
 fi
 scan_tip=$(git rev-parse private)
 
-# Commits on private whose patch is not yet on the local public
-# branch ('+' marks). The local public branch is the pick target, so
-# already-picked (even unpushed) patches are not re-examined.
-declare -A pending
-while read mark sha; do
-  [ "$mark" = "+" ] && pending[$sha]=1
-done < <(git cherry "$public" private)
+# A commit counts as already published when its patch-id exists
+# anywhere on the public branch.
+declare -A applied
+while read pid _; do
+  applied[$pid]=1
+done < <(git log -p "$public" | git patch-id)
 
 pick=(); lines=()
 for sha in $(git rev-list --reverse "$base..private"); do
@@ -68,7 +67,8 @@ for sha in $(git rev-list --reverse "$base..private"); do
   if [ "$(git rev-list --parents -n1 "$sha" | wc -w)" -gt 2 ]; then
     lines+=("skip (merge)   $line"); continue
   fi
-  if [ "${pending[$sha]:-}" != "1" ]; then
+  pid=$(git show "$sha" | git patch-id | awk '{print $1}')
+  if [ -n "$pid" ] && [ "${applied[$pid]:-}" = 1 ]; then
     lines+=("skip (on $public) $line"); continue
   fi
   touched=$(git diff-tree --no-commit-id --name-only -r "$sha" | LC_ALL=C sort)

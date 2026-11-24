@@ -92,3 +92,12 @@ Agent-maintained.
   Trigger: a hand commit in `~/workspaceconfig` swept the private-side merge `c5f4012` into the `deps/scripts` gitlink hours after the same shape hit `deps/workflows`; bump.sh's own guard cannot police commits it does not make.
 - `tests/test-git-privacy.sh`: dep-clone fixture plus `--cacheinfo`-staged pins covering public pass, private-sha and private-merge refusal, missing checkout, and inertness without gitlink changes (28 checks).
 - `README.md`, `AGENTS.md`: shared-guard inventory updated.
+
+## 2026-11-24: publish.sh applied-detection fix
+
+- `git cherry`'s equivalence set is `private..public`, which empties once the public branch is merged back into `private`; every later run re-planned the whole post-boundary range and re-picked already-published commits.
+  First hit in hw-commons: a fresh boundary scan planned the full post-split history and conflicted re-applying a `[deps] bump` twin whose published copy carried a different gitlink sha.
+- Replaced with patch-id matching over every commit reachable from the public branch (`git log -p | git patch-id` once, `git show | git patch-id` per candidate); a merged-back copy still counts as published.
+  Patches whose published copy was resolved differently cannot patch-id-match and keep their conflict path.
+- `tests/test-git-privacy.sh`: publish, merge-back, boundary-reset fixture covering the re-pick regression (32 checks, was 28).
+- `recipes/git-privacy.md` in the workflows repo synced (separate commit there).

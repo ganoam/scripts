@@ -75,6 +75,21 @@ git add -A; git commit -qm 'mixed'
 expect 'publish aborts on a mixed commit' 1 publish --dry-run
 git reset -q --hard HEAD~1
 
+# --- publish.sh: applied detection across merge-back ----------------
+# Once published commits are merged back into private, patch-ids over the whole
+# public branch must still retire the originals. The merged-in copy
+# is itself a scan candidate and gets the same marking.
+expect 'publish lands the public commit' 0 publish
+git merge -qm 'merge public back' master
+echo p2 > pub5.md; git add pub5.md; git commit -qm 'public two'
+git tag -d publish-base >/dev/null
+check 'merged-back original is not re-picked' \
+  test "$(publish -n | grep -c 'pick .*public file')" = 0
+check 'merged-back commits show skip (on master)' \
+  test "$(publish -n | grep -c 'skip (on master).*public file')" -ge 1
+check 'new public commit still picked' \
+  test "$(publish -n | grep -c 'pick .*public two')" = 1
+
 # --- pre-commit on master ------------------------------------------
 git checkout -q master
 mkdir -p notes tomb
