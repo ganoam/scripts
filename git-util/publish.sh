@@ -79,10 +79,23 @@ for ((i=0; i<${#scan[@]}; i++)); do
   erapriv[${scan[$i]}]=$eff
 done
 
-pick=(); lines=()
+# Graduation detection: entries leaving the era set at a commit mark
+# paths whose state must be planted on the public branch before any
+# later pick touching them replays (their diffs base on state the
+# public side never saw). The plant is one synthesized commit at the
+# unlist commit's position, carrying those paths' content as of it.
+pick=(); lines=(); prevera=
 for ((i=${#scan[@]}-1; i>=0; i--)); do
   sha=${scan[$i]}
   line="$(git log --oneline -1 "$sha")"
+  era=${erapriv[$sha]}
+  removed=$(comm -23 <(printf '%s\n' "$prevera") \
+    <(printf '%s\n' "$era") | paste -sd' ' -)
+  if [ -n "$removed" ]; then
+    pick+=("plant:$sha:$removed")
+    lines+=("plant (grad: $removed) $line")
+  fi
+  prevera=$era
   if [ "$(git rev-list --parents -n1 "$sha" | wc -w)" -gt 2 ]; then
     lines+=("skip (merge)   $line"); continue
   fi
@@ -132,7 +145,28 @@ if ! git worktree add "$wt" "$public"; then
   exit 1
 fi
 trap 'git worktree remove --force "$wt" 2>/dev/null' EXIT
-for sha in "${pick[@]}"; do
+for item in "${pick[@]}"; do
+  if [[ $item == plant:* ]]; then
+    rest=${item#plant:}; xsha=${rest%%:*}; entries=${rest#*:}
+    planted=
+    for e in $entries; do
+      while IFS= read -r p; do
+        git -C "$wt" checkout -q "$xsha" -- "$p"
+        planted="$planted $p"
+      done < <(git ls-tree -r --name-only "$xsha" -- "$e")
+    done
+    if [ -z "$planted" ]; then
+      echo "  plant (nothing at ${xsha:0:8}) $entries"
+    elif git -C "$wt" diff --cached --quiet; then
+      echo "  plant (already present) $entries"
+    else
+      git -C "$wt" commit -qm \
+        "[git-privacy] publish $entries from private (${xsha:0:8})"
+      echo "  $(git -C "$wt" rev-parse --short HEAD) <- plant $entries"
+    fi
+    continue
+  fi
+  sha=$item
   if ! out=$(git -C "$wt" cherry-pick -x "$sha" 2>&1); then
     if echo "$out" | grep -q "now empty"; then
       echo "  skip (already applied) ${sha:0:8}  $(git log --format=%s -1 "$sha")"

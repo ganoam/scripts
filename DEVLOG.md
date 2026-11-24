@@ -109,3 +109,11 @@ Agent-maintained.
   A pre-`.gitprivate` commit yields no list (`git show` fails) and contributes nothing to the union.
 - `tests/test-git-privacy.sh`: two pre-list fixture commits (also covering the silent `set -e` kill the per-commit lookup caused in hw-commons) and an era fixture covering closed windows and later declarations both directions (35 checks, was 32).
 - `recipes/git-privacy.md` in the workflows repo synced (separate commit there).
+
+## 2026-11-24: publish.sh graduation plants
+
+- Entries leaving the era set mark graduations: at the unlist commit's position the run synthesizes one public-branch commit carrying those paths' state at that commit (`[git-privacy] publish <paths> from private (<sha>)`), so a later pick modifying a graduated file diffs on state the public branch actually has instead of conflicting on state it never saw.
+  Subsumes the recipe's manual `git show private:<path>` plant step; a hand-planted identical file makes the synthesized commit empty and it skips itself.
+- `.gitprivate` entry normalization: trailing slashes are stripped at read time (`priv/` == `priv`), closing the silent un-protection hole where a trailing-slash dir entry matched nothing (found when a `priv/` fixture commit classified public). Applied at all three extraction sites: `publish.sh`, `git-hooks/pre-commit.d/10-git-private`, `git-hooks/pre-push.d/10-git-private`.
+- `tests/test-git-privacy.sh`: `priv/` graduation fixture covering the plan marker, the synthesized commit subject, and the modify-diff applying on planted state (39 checks, was 35).
+- `recipes/git-privacy.md` in the workflows repo synced (separate commit there).

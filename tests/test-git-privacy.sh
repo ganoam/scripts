@@ -116,6 +116,29 @@ check 'later-listed path skipped for earlier commits' \
 check 'public tail still picked' \
   test "$(publish -n | grep -c 'pick .*public tail')" = 1
 
+# --- publish.sh: graduation plants state on the public branch -------
+# Dropping a .gitprivate entry graduates its paths: the unlist commit
+# plants their state at that point onto master as one synthesized
+# commit, so a later pick modifying the file diffs cleanly instead of
+# conflicting on state master never saw. The 'priv/' entry also covers
+# trailing-slash normalization (equivalent to bare 'priv').
+echo 'priv/' >> .gitprivate; git add .gitprivate
+git commit -qm 'list priv dir'
+mkdir priv; echo q > priv/q.md; git add priv/q.md
+git commit -qm 'private-era priv file'
+sed -i '/^priv\/$/d' .gitprivate; git add .gitprivate
+git commit -qm 'graduate priv'
+echo edit >> priv/q.md; git add priv/q.md
+git commit -qm 'post-grad priv edit'
+check 'plan marks the graduation plant' \
+  test "$(publish -n | grep -c 'plant (grad: priv)')" = 1
+expect 'publish lands plant and later picks' 0 publish
+check 'graduated file modified on master' \
+  test "$(git -C "$R" show master:priv/q.md)" = 'q
+edit'
+check 'synthesized publish commit on master' \
+  bash -c "git -C '$R' log --format=%s master | grep -q 'publish priv from private'"
+
 # --- pre-commit on master ------------------------------------------
 git checkout -q master
 mkdir -p notes tomb
