@@ -32,18 +32,24 @@ public=${public#origin/}; public=${public:-master}
 git rev-parse --verify --quiet "$public" >/dev/null \
   || { echo "publish: no local public branch '$public'"; exit 1; }
 
-private_set=$(git show private:.gitprivate 2>/dev/null \
-  | sed 's/#.*//; s/^ *//; s/ *$//' | grep -v '^$' | LC_ALL=C sort)
+# gitprivate_at <sha>: the .gitprivate entries in that commit's tree,
+# cleaned (comments and blank lines out).
+gitprivate_at() {
+  git show "$1:.gitprivate" 2>/dev/null \
+    | sed 's/#.*//; s/^ *//; s/ *$//' | grep -v '^$'
+}
+private_set=$(gitprivate_at private | LC_ALL=C sort)
 [ -n "$private_set" ] || { echo "publish: no .gitprivate on 'private'"; exit 1; }
 
-# An entry matches a path equal to it, or every path below it when it
-# names a directory (gitignore-style, repo-root relative).
+# private_filter <entry-list>: echo each stdin path matching an entry
+# (exact, or below it when the entry names a directory,
+# gitignore-style, repo-root relative).
 private_filter() {
   local p e
   while IFS= read -r p; do          # each path on stdin
-    while IFS= read -r e; do        # each .gitprivate entry
+    while IFS= read -r e; do        # each entry in the era list
       case $p in "$e"|"$e"/*) echo "$p"; break ;; esac
-    done <<< "$private_set"
+    done <<< "$1"
   done
 }
 
@@ -61,8 +67,21 @@ while read pid _; do
   applied[$pid]=1
 done < <(git log -p "$public" | git patch-id)
 
+# Per-commit-era private sets, unioned forward: erapriv[sha] is the
+# commit's own .gitprivate plus every later version on the range
+# (topological order visits descendants first).
+mapfile -t scan < <(git rev-list --topo-order "$base..private")
+declare -A erapriv
+eff=
+for ((i=0; i<${#scan[@]}; i++)); do
+  v=$(gitprivate_at "${scan[$i]}" || true)   # pre-.gitprivate commits yield none
+  eff=$(printf '%s\n%s\n' "$eff" "$v" | LC_ALL=C sort -u | grep -v '^$' || true)
+  erapriv[${scan[$i]}]=$eff
+done
+
 pick=(); lines=()
-for sha in $(git rev-list --reverse "$base..private"); do
+for ((i=${#scan[@]}-1; i>=0; i--)); do
+  sha=${scan[$i]}
   line="$(git log --oneline -1 "$sha")"
   if [ "$(git rev-list --parents -n1 "$sha" | wc -w)" -gt 2 ]; then
     lines+=("skip (merge)   $line"); continue
@@ -72,7 +91,7 @@ for sha in $(git rev-list --reverse "$base..private"); do
     lines+=("skip (on $public) $line"); continue
   fi
   touched=$(git diff-tree --no-commit-id --name-only -r "$sha" | LC_ALL=C sort)
-  priv=$(echo "$touched" | private_filter)
+  priv=$(echo "$touched" | private_filter "${erapriv[$sha]}")
   pub=$(comm -23 <(echo "$touched") <(echo "$priv"))
   if [ -n "$priv" ] && [ -n "$pub" ]; then
     echo "publish: $sha mixes private and public files -- split it first:"

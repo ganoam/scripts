@@ -101,3 +101,11 @@ Agent-maintained.
   Patches whose published copy was resolved differently cannot patch-id-match and keep their conflict path.
 - `tests/test-git-privacy.sh`: publish, merge-back, boundary-reset fixture covering the re-pick regression (32 checks, was 28).
 - `recipes/git-privacy.md` in the workflows repo synced (separate commit there).
+
+## 2026-11-24: publish.sh era classification
+
+- Classification moved off the tip's `.gitprivate` snapshot: each commit is judged by its era's list unioned with every later version on the scanned range, so a path private at commit time or made private afterwards never publishes (topo walk, one `git show` per commit).
+  Strict era-only would expose commits predating a path's declaration; the union keeps the current list as floor while honoring private windows that since closed.
+  A pre-`.gitprivate` commit yields no list (`git show` fails) and contributes nothing to the union.
+- `tests/test-git-privacy.sh`: two pre-list fixture commits (also covering the silent `set -e` kill the per-commit lookup caused in hw-commons) and an era fixture covering closed windows and later declarations both directions (35 checks, was 32).
+- `recipes/git-privacy.md` in the workflows repo synced (separate commit there).

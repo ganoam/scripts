@@ -55,20 +55,26 @@ git remote add origin "$T/origin.git"; git push -qu origin master
 # creates origin/master (publish-base default); origin/HEAD stays
 # unset, so the 'master' fallback is the path exercised.
 
-# private: .gitprivate (file entry, dir entry, tombstone), a private
-# commit, and a public commit on top.
+# private: two commits from before .gitprivate exists (one ordinary
+# file, one under the later-listed notes/ dir), then .gitprivate
+# (file entry, dir entry, tombstone), a private commit, and a public
+# commit on top. The pre-list commits exercise era classification
+# against the union of later versions.
 git checkout -qb private
+echo x > early.md; git add early.md; git commit -qm 'pre-list public'
+mkdir -p notes; echo n > notes/early.md
+git add notes/early.md; git commit -qm 'pre-list notes'
 printf '.gitprivate\nnotes\nsecret.md\ntomb\n' > .gitprivate
 git add .gitprivate; git commit -qm gitprivate
-mkdir notes; echo s > notes/s.md; echo s > secret.md
+echo s > notes/s.md; echo s > secret.md
 git add notes/s.md secret.md; git commit -qm 'private files'
 echo p > pub.md; git add pub.md; git commit -qm 'public file'
 
 # --- publish.sh ---------------------------------------------------
-check 'publish picks the public commit only' \
-  test "$(publish -n | grep -c 'pick ')" = 1
-check 'publish skips both private commits' \
-  test "$(publish -n | grep -c 'skip (private)')" = 2
+check 'publish picks both public commits' \
+  test "$(publish -n | grep -c 'pick ')" = 2
+check 'publish skips all three private commits' \
+  test "$(publish -n | grep -c 'skip (private)')" = 3
 
 echo m > pubmix.md; echo m > notes/mix.md
 git add -A; git commit -qm 'mixed'
@@ -89,6 +95,26 @@ check 'merged-back commits show skip (on master)' \
   test "$(publish -n | grep -c 'skip (on master).*public file')" -ge 1
 check 'new public commit still picked' \
   test "$(publish -n | grep -c 'pick .*public two')" = 1
+
+# --- publish.sh: era classification ---------------------------------
+# A commit is judged by its era's .gitprivate unioned with every later
+# version: a path private then (unlisted since) stays skipped, and a
+# path listed only later is protected for its earlier commits.
+echo grad.md >> .gitprivate; git add .gitprivate
+git commit -qm 'list grad.md'
+echo g > grad.md; git add grad.md; git commit -qm 'private-at-era file'
+sed -i '/^grad.md$/d' .gitprivate; git add .gitprivate
+git commit -qm 'unlist grad.md'
+echo e > era.md; git add era.md; git commit -qm 'public-at-era file'
+echo era.md >> .gitprivate; git add .gitprivate
+git commit -qm 'list era.md later'
+echo p4 > pub4.md; git add pub4.md; git commit -qm 'public tail'
+check 'era-private commit skipped though unlisted now' \
+  test "$(publish -n | grep -c 'skip (private).*private-at-era')" = 1
+check 'later-listed path skipped for earlier commits' \
+  test "$(publish -n | grep -c 'skip (private).*public-at-era')" = 1
+check 'public tail still picked' \
+  test "$(publish -n | grep -c 'pick .*public tail')" = 1
 
 # --- pre-commit on master ------------------------------------------
 git checkout -q master
