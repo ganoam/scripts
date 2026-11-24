@@ -36,7 +36,7 @@ git rev-parse --verify --quiet "$public" >/dev/null \
 # cleaned (comments and blank lines out).
 gitprivate_at() {
   git show "$1:.gitprivate" 2>/dev/null \
-    | sed 's/#.*//; s/^ *//; s/ *$//' | grep -v '^$'
+    | sed 's/#.*//; s/^ *//; s/ *$//; s|/*$||' | grep -v '^$'
 }
 private_set=$(gitprivate_at private | LC_ALL=C sort)
 [ -n "$private_set" ] || { echo "publish: no .gitprivate on 'private'"; exit 1; }

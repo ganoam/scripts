@@ -8,7 +8,7 @@ remote="$1"
 [ "$remote" = "origin" ] || exit 0
 
 private_set=$(git show private:.gitprivate 2>/dev/null \
-  | sed 's/#.*//; s/^ *//; s/ *$//' | grep -v '^$' | LC_ALL=C sort)
+  | sed 's/#.*//; s/^ *//; s/ *$//; s|/*$||' | grep -v '^$' | LC_ALL=C sort)
 [ -n "$private_set" ] || exit 0
 
 # An entry matches a path equal to it, or every path below it when it
